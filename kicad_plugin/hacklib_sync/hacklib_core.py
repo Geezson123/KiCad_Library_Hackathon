@@ -44,11 +44,19 @@ def resolve_local_dir(cfg, env_var="HACKLIB_DIR"):
     return os.path.join(os.path.expanduser("~"), "Documents", "KiCad_HackLib")
 
 
-def sync(server_url, local_dir, timeout=30):
-    """Download /api/bundle from server_url and extract into local_dir.
+# Subdirectories we fully mirror: files here that are no longer on the server are
+# deleted locally, so deleting a part on the server removes its footprint/3D-model files
+# from every synced machine. Restricted to these two managed dirs so a mis-pointed
+# local_dir can never cause us to delete unrelated files.
+_MIRRORED_DIRS = ("footprints", "3dmodels")
 
-    Returns the number of files extracted. Raises on network/zip errors so callers can
-    present the failure however they like (CLI print vs. wx dialog).
+
+def sync(server_url, local_dir, timeout=30):
+    """Download /api/bundle from server_url and extract into local_dir, mirroring.
+
+    Extracts the bundle (adding/updating files) and prunes stale files under the mirrored
+    directories so server-side deletions propagate. Returns
+    ``{"extracted": int, "deleted": int}``. Raises on network/zip errors.
     """
     url = server_url.rstrip("/") + "/api/bundle"
     os.makedirs(local_dir, exist_ok=True)
@@ -59,10 +67,33 @@ def sync(server_url, local_dir, timeout=30):
             out.write(resp.read())
         with zipfile.ZipFile(tmp_zip) as zf:
             members = [m for m in zf.namelist() if not m.endswith("/")]
+            keep = {os.path.normpath(m) for m in members}
             zf.extractall(local_dir)
-        return len(members)
+        deleted = _prune_stale(local_dir, keep)
+        return {"extracted": len(members), "deleted": deleted}
     finally:
         try:
             os.remove(tmp_zip)
         except OSError:
             pass
+
+
+def _prune_stale(local_dir, keep):
+    """Delete files under the mirrored dirs that are not in ``keep`` (bundle-relative,
+    normpath'd). Returns the number of files removed."""
+    deleted = 0
+    for sub in _MIRRORED_DIRS:
+        base = os.path.join(local_dir, sub)
+        if not os.path.isdir(base):
+            continue
+        for root, _dirs, files in os.walk(base):
+            for fname in files:
+                full = os.path.join(root, fname)
+                rel = os.path.normpath(os.path.relpath(full, local_dir))
+                if rel not in keep:
+                    try:
+                        os.remove(full)
+                        deleted += 1
+                    except OSError:
+                        pass
+    return deleted

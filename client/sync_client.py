@@ -45,13 +45,13 @@ def main():
     print(f"Syncing from {server}/api/bundle")
     print(f"          -> {local}")
     try:
-        count = core.sync(server, local)
+        result = core.sync(server, local)
     except Exception as exc:  # noqa: BLE001
         sys.exit(f"ERROR: sync failed: {exc}")
 
-    print(f"OK - extracted {count} files.")
+    print(f"OK - {result['extracted']} files, {result['deleted']} stale file(s) removed.")
     print("\nDone. In KiCad: refresh the HackLib database library (Symbol Chooser) "
-          "or restart KiCad to see new parts.")
+          "or restart KiCad to pick up changes (restart is needed for footprints).")
 
 
 if __name__ == "__main__":

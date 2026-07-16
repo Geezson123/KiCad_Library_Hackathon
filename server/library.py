@@ -88,6 +88,22 @@ def add_symbol_from_file(uploaded_path, desired_name=None):
     return new_name
 
 
+def remove_symbol(name):
+    """Remove a symbol (by entryName) from the aggregated HackLib.kicad_sym."""
+    if not name or not os.path.exists(config.SYMBOLS_LIB):
+        return
+    lib = SymbolLib.from_file(config.SYMBOLS_LIB)
+    lib.symbols = [s for s in lib.symbols if s.entryName != name]
+    lib.to_file(config.SYMBOLS_LIB)
+
+
+def ref_name(ref):
+    """Return the bare item name from a 'HackLib:Name' reference (or '' if empty)."""
+    if not ref:
+        return ""
+    return ref.split(":", 1)[1] if ":" in ref else ref
+
+
 # ---------------------------------------------------------------------------
 # 3D models
 # ---------------------------------------------------------------------------
@@ -103,6 +119,15 @@ def add_model_file(uploaded_path, desired_filename=None):
         base = _unique(stem, {os.path.splitext(e)[0] for e in existing}) + ext
     shutil.copyfile(uploaded_path, os.path.join(config.MODELS_DIR, base))
     return base
+
+
+def remove_model(basename):
+    """Delete a 3D model file from 3dmodels/."""
+    if not basename:
+        return
+    path = os.path.join(config.MODELS_DIR, basename)
+    if os.path.exists(path):
+        os.remove(path)
 
 
 # ---------------------------------------------------------------------------
@@ -122,6 +147,31 @@ def _rewrite_model_paths(text, model_basename):
     return _MODEL_RE.sub(repl, text)
 
 
+def _apply_model(text, model_basename):
+    """Rewrite existing model paths, or insert a model block if there is none."""
+    if "(model" in text:
+        return _rewrite_model_paths(text, model_basename)
+    if model_basename:
+        idx = text.rstrip().rfind(")")
+        if idx != -1:
+            block = (
+                '  (model "${HACKLIB_3D}/%s"\n'
+                "    (offset (xyz 0 0 0))\n"
+                "    (scale (xyz 1 1 1))\n"
+                "    (rotate (xyz 0 0 0))\n  )\n" % model_basename
+            )
+            return text[:idx] + block + text[idx:]
+    return text
+
+
+def _read_text(path):
+    raw = open(path, "rb").read()
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw.decode("latin-1")
+
+
 def add_footprint_from_file(uploaded_path, desired_name=None, model_basename=None):
     """Copy an uploaded .kicad_mod into HackLib.pretty verbatim, rewriting only the 3D
     model path. Works for both modern ``(footprint …)`` and legacy ``(module …)`` files.
@@ -139,25 +189,7 @@ def add_footprint_from_file(uploaded_path, desired_name=None, model_basename=Non
     }
     name = _unique(sanitize_name(base), existing)
 
-    raw = open(uploaded_path, "rb").read()
-    try:
-        text = raw.decode("utf-8")
-    except UnicodeDecodeError:
-        text = raw.decode("latin-1")
-
-    if "(model" in text:
-        text = _rewrite_model_paths(text, model_basename)
-    elif model_basename:
-        # Footprint has no 3D model line — insert one before the final closing paren.
-        idx = text.rstrip().rfind(")")
-        if idx != -1:
-            block = (
-                '  (model "${HACKLIB_3D}/%s"\n'
-                "    (offset (xyz 0 0 0))\n"
-                "    (scale (xyz 1 1 1))\n"
-                "    (rotate (xyz 0 0 0))\n  )\n" % model_basename
-            )
-            text = text[:idx] + block + text[idx:]
+    text = _apply_model(_read_text(uploaded_path), model_basename)
 
     out = os.path.join(config.FOOTPRINTS_DIR, name + ".kicad_mod")
     # newline="" prevents Windows from doubling CR in CRLF files (\r\n -> \r\r\n), which
@@ -165,6 +197,30 @@ def add_footprint_from_file(uploaded_path, desired_name=None, model_basename=Non
     with open(out, "w", encoding="utf-8", newline="") as fh:
         fh.write(text)
     return name
+
+
+def remove_footprint(name):
+    """Delete a footprint file from HackLib.pretty."""
+    if not name:
+        return
+    path = os.path.join(config.FOOTPRINTS_DIR, name + ".kicad_mod")
+    if os.path.exists(path):
+        os.remove(path)
+
+
+def relink_model(footprint_name, model_basename):
+    """Repoint an existing footprint's 3D model at ``${HACKLIB_3D}/<model_basename>``.
+
+    Used on edit when a new 3D model is uploaded but the footprint is unchanged.
+    """
+    if not footprint_name:
+        return
+    path = os.path.join(config.FOOTPRINTS_DIR, footprint_name + ".kicad_mod")
+    if not os.path.exists(path):
+        return
+    text = _apply_model(_read_text(path), model_basename)
+    with open(path, "w", encoding="utf-8", newline="") as fh:
+        fh.write(text)
 
 
 # ---------------------------------------------------------------------------

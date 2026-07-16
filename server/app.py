@@ -4,6 +4,7 @@ Run locally:   python app.py
 Run on VPS:    gunicorn -w 1 -b 127.0.0.1:8000 app:app   (see docs/SETUP_VPS.md)
 """
 import os
+import shutil
 import tempfile
 
 from flask import (
@@ -143,8 +144,115 @@ def upload():
         flash(f"Added part #{part_id} ({sym_name}). Sync KiCad to see it.", "success")
         return redirect(url_for("part_detail", part_id=part_id))
     finally:
-        import shutil
         shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+@app.route("/part/<int:part_id>/edit", methods=["GET", "POST"])
+def edit_part(part_id):
+    part = db.get_part(part_id)
+    if not part:
+        abort(404)
+    if request.method == "GET":
+        return render_template("edit.html", part=part, categories=CATEGORIES)
+
+    f = request.form
+    symbol_file = request.files.get("symbol")
+    footprint_file = request.files.get("footprint")
+    model_file = request.files.get("model")
+
+    symbols_val = part["symbols"]
+    footprints_val = part["footprints"]
+    model_val = part["model3d"]
+
+    tmpdir = tempfile.mkdtemp(prefix="hacklib_edit_")
+    try:
+        # --- new 3D model (optional) ---
+        new_model = None
+        if model_file and model_file.filename:
+            mdl_path = os.path.join(tmpdir, secure_filename(model_file.filename))
+            model_file.save(mdl_path)
+            new_model = library.add_model_file(mdl_path)
+
+        # --- new footprint (optional): replaces the old one ---
+        if footprint_file and footprint_file.filename:
+            fp_path = os.path.join(tmpdir, secure_filename(footprint_file.filename))
+            footprint_file.save(fp_path)
+            try:
+                fp_name = library.add_footprint_from_file(
+                    fp_path, model_basename=new_model or library.ref_name(model_val) or None
+                )
+            except Exception as exc:  # noqa: BLE001
+                flash(f"Could not read footprint file: {exc}", "error")
+                return redirect(url_for("edit_part", part_id=part_id))
+            old_fp = library.ref_name(footprints_val)
+            if old_fp and old_fp != fp_name and not db.asset_in_use(
+                "footprints", footprints_val, exclude_id=part_id
+            ):
+                library.remove_footprint(old_fp)
+            footprints_val = f"{config.LIB_NICKNAME}:{fp_name}"
+        elif new_model:
+            # Footprint unchanged but a new 3D model was uploaded — relink it.
+            library.relink_model(library.ref_name(footprints_val), new_model)
+
+        # --- 3D model bookkeeping / cleanup ---
+        if new_model:
+            if model_val and model_val != new_model and not db.asset_in_use(
+                "model3d", model_val, exclude_id=part_id
+            ):
+                library.remove_model(model_val)
+            model_val = new_model
+
+        # --- new symbol (optional): replaces the old one ---
+        if symbol_file and symbol_file.filename:
+            sym_path = os.path.join(tmpdir, secure_filename(symbol_file.filename))
+            symbol_file.save(sym_path)
+            try:
+                sym_name = library.add_symbol_from_file(sym_path)
+            except Exception as exc:  # noqa: BLE001
+                flash(f"Could not read symbol file: {exc}", "error")
+                return redirect(url_for("edit_part", part_id=part_id))
+            old_sym = library.ref_name(symbols_val)
+            if old_sym and old_sym != sym_name and not db.asset_in_use(
+                "symbols", symbols_val, exclude_id=part_id
+            ):
+                library.remove_symbol(old_sym)
+            symbols_val = f"{config.LIB_NICKNAME}:{sym_name}"
+
+        new_name = db.update_part(part_id, {
+            "name": f.get("name", "").strip(),
+            "category": f.get("category", "").strip(),
+            "mpn": f.get("mpn", "").strip(),
+            "manufacturer": f.get("manufacturer", "").strip(),
+            "value": f.get("value", "").strip(),
+            "description": f.get("description", "").strip(),
+            "datasheet": f.get("datasheet", "").strip(),
+            "keywords": f.get("keywords", "").strip(),
+            "symbols": symbols_val,
+            "footprints": footprints_val,
+            "model3d": model_val,
+        })
+        flash(f"Updated part #{part_id} ({new_name}). Sync to update KiCad.", "success")
+        return redirect(url_for("part_detail", part_id=part_id))
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+@app.route("/part/<int:part_id>/delete", methods=["POST"])
+def delete_part(part_id):
+    part = db.get_part(part_id)
+    if not part:
+        abort(404)
+    # Remove backing assets only if no other part still references them.
+    if not db.asset_in_use("symbols", part["symbols"], exclude_id=part_id):
+        library.remove_symbol(library.ref_name(part["symbols"]))
+    if not db.asset_in_use("footprints", part["footprints"], exclude_id=part_id):
+        library.remove_footprint(library.ref_name(part["footprints"]))
+    if not db.asset_in_use("model3d", part["model3d"], exclude_id=part_id):
+        library.remove_model(part["model3d"])
+    db.delete_part(part_id)
+    flash(f"Deleted part #{part_id} ({part['name']}). Sync to remove it from your "
+          f"computer (restart KiCad to clear footprints).", "success")
+    return redirect(url_for("browse"))
 
 
 @app.route("/api/bundle")

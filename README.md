@@ -60,5 +60,8 @@ VPS. For demo day, use **[docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md)**.
 
 - **Lightweight (1 GB VPS):** Flask + SQLite only; idle ~30–50 MB, no DB daemon.
 - **Integrates with KiCad:** native database library (`.kicad_dbl`) over SQLite/ODBC.
-- **Web GUI:** browse + search + upload symbol/footprint/3D files.
-- **One-click sync:** `sync.bat` downloads the bundle into the local KiCad library folder.
+- **Web GUI:** browse + search + upload, **edit** (incl. replacing symbol/footprint/3D
+  files), and **delete** parts.
+- **One-click sync:** `sync.bat` (or the KiCad plugin) downloads the bundle into the local
+  KiCad library folder. Sync **mirrors** the server — deleting a part on the server removes
+  its footprint/3D files from every synced machine on the next sync.

@@ -50,12 +50,15 @@ _DialogBase = wx.Dialog if HAVE_WX else object
 class _ReloadHintDialog(_DialogBase):
     """Small dialog shown after a successful sync, explaining how to reload libraries."""
 
-    def __init__(self, count, local_dir):
+    def __init__(self, count, deleted, local_dir):
         super().__init__(None, title="HackLib Sync", style=wx.DEFAULT_DIALOG_STYLE)
         panel = wx.Panel(self)
         outer = wx.BoxSizer(wx.VERTICAL)
 
-        heading = wx.StaticText(panel, label="Synced %d files." % count)
+        summary = "Synced %d files." % count
+        if deleted:
+            summary += "  Removed %d deleted file(s)." % deleted
+        heading = wx.StaticText(panel, label=summary)
         font = heading.GetFont()
         font.MakeBold()
         font.SetPointSize(font.GetPointSize() + 1)
@@ -129,17 +132,18 @@ class HackLibSyncPlugin(pcbnew.ActionPlugin):
         core.save_config(CONFIG_PATH, cfg)
 
         try:
-            count = core.sync(server_url, local_dir)
+            result = core.sync(server_url, local_dir)
         except Exception as exc:  # noqa: BLE001 - report any failure to the user
             self._error("Sync failed:\n%s\n\nServer: %s" % (exc, server_url))
             return
 
         if HAVE_WX:
-            dlg = _ReloadHintDialog(count, local_dir)
+            dlg = _ReloadHintDialog(result["extracted"], result["deleted"], local_dir)
             dlg.ShowModal()
             dlg.Destroy()
         else:
-            print("Synced %d files to %s" % (count, local_dir))
+            print("Synced %d files (%d removed) to %s"
+                  % (result["extracted"], result["deleted"], local_dir))
 
     def _error(self, text):
         if HAVE_WX:

@@ -50,6 +50,10 @@ h1 { font-size: 24px; margin: 0; }
 }
 .btn:hover { text-decoration: none; border-color: var(--accent); }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: #041027; font-weight: 600; }
+.btn.danger { background: transparent; border-color: var(--danger); color: var(--danger); }
+.btn.danger:hover { background: var(--danger); color: #2a0000; border-color: var(--danger); }
+.head-actions { display: flex; gap: 10px; align-items: center; }
+.head-actions form { margin: 0; }
 
 .filters { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
 .filters input[type=search] { flex: 1; min-width: 240px; }

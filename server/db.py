@@ -107,6 +107,43 @@ def insert_part(data):
         return cur.lastrowid
 
 
+def update_part(part_id, data):
+    """Update an existing part's columns. Returns the (possibly re-uniquified) name."""
+    cols = [
+        "name", "category", "mpn", "manufacturer", "value", "description", "datasheet",
+        "keywords", "symbols", "footprints", "model3d",
+    ]
+    with get_conn() as conn:
+        base = (data.get("name") or "").strip() or _display_name(data)
+        name = _unique_name(conn, re.sub(r"[:/\\]", "_", base), exclude_id=part_id)
+        data = dict(data, name=name)
+        sets = ", ".join(f"{c} = ?" for c in cols)
+        values = [data.get(c, "") or "" for c in cols] + [part_id]
+        conn.execute(f"UPDATE parts SET {sets} WHERE id = ?", values)
+        return name
+
+
+def delete_part(part_id):
+    with get_conn() as conn:
+        conn.execute("DELETE FROM parts WHERE id = ?", (part_id,))
+
+
+def asset_in_use(column, value, exclude_id=None):
+    """True if any (other) part still references this symbol/footprint/model value.
+
+    Used before deleting a shared asset so we never orphan a part that reuses it.
+    """
+    if column not in ("symbols", "footprints", "model3d") or not value:
+        return False
+    sql = f"SELECT 1 FROM parts WHERE {column} = ?"
+    args = [value]
+    if exclude_id is not None:
+        sql += " AND id <> ?"
+        args.append(exclude_id)
+    with get_conn() as conn:
+        return conn.execute(sql, args).fetchone() is not None
+
+
 def list_parts(query="", category=""):
     sql = "SELECT * FROM parts WHERE 1=1"
     args = []
