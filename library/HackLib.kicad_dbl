@@ -14,7 +14,7 @@
     },
     "libraries": [
         {
-            "name": "Parts",
+            "name": "",
             "table": "parts",
             "key": "name",
             "symbols": "symbols",
