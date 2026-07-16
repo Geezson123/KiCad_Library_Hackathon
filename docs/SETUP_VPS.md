@@ -7,7 +7,7 @@ The server runs only a Flask app + SQLite. No database server, no open DB port.
 ```bash
 sudo apt update && sudo apt install -y python3 python3-venv git
 sudo mkdir -p /opt/hacklib && sudo chown $USER /opt/hacklib
-git clone <your-repo-url> /opt/hacklib
+git clone https://github.com/Geezson123/KiCad_Library_Hackathon /opt/hacklib
 cd /opt/hacklib/server
 python3 -m venv /opt/hacklib/venv
 /opt/hacklib/venv/bin/pip install -r requirements.txt

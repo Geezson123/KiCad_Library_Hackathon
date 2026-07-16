@@ -9,6 +9,7 @@
 <div class="card">
   <dl class="detail">
     <dt>ID</dt><dd>{{ part.id }}</dd>
+    <dt>KiCad name</dt><dd class="mono">{{ part.name }} <span class="hint">(shown in the Symbol Chooser)</span></dd>
     <dt>Category</dt><dd><span class="chip">{{ part.category or '—' }}</span></dd>
     <dt>MPN</dt><dd class="mono">{{ part.mpn or '—' }}</dd>
     <dt>Manufacturer</dt><dd>{{ part.manufacturer or '—' }}</dd>

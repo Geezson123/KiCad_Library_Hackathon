@@ -16,7 +16,7 @@
         {
             "name": "Parts",
             "table": "parts",
-            "key": "id",
+            "key": "name",
             "symbols": "symbols",
             "footprints": "footprints",
             "fields": [
