@@ -5,9 +5,15 @@ KiCad database libraries only store a *reference* to a symbol/footprint (e.g.
 ``HackLib.pretty`` folder. This module keeps those in sync with the DB:
 
 * merge an uploaded ``.kicad_sym`` into the single aggregated symbol library
-* copy an uploaded ``.kicad_mod`` into the footprint library
+* copy an uploaded ``.kicad_mod`` into the footprint library (verbatim)
 * copy an uploaded 3D model and point the footprint at it via ``${HACKLIB_3D}``
 * build the download bundle (a zip of the whole ``library/`` directory)
+
+Footprints are copied byte-for-byte (only the 3D model path is rewritten). We do NOT
+round-trip them through kiutils: vendor footprints are frequently in the legacy KiCad-5
+``(module …)`` format, and re-serializing them drops the version header / mangles arcs so
+KiCad refuses to load the result. KiCad reads legacy footprints natively, so a verbatim
+copy is the most compatible option.
 """
 import os
 import re
@@ -15,7 +21,6 @@ import shutil
 import tempfile
 
 from kiutils.symbol import SymbolLib
-from kiutils.footprint import Footprint, Model
 
 import config
 
@@ -103,35 +108,62 @@ def add_model_file(uploaded_path, desired_filename=None):
 # ---------------------------------------------------------------------------
 # footprints
 # ---------------------------------------------------------------------------
+# Matches a `(model <path> …)` opening, capturing the path token (quoted or bareword).
+_MODEL_RE = re.compile(r'(\(model\s+)("[^"]*"|[^\s()]+)')
+
+
+def _rewrite_model_paths(text, model_basename):
+    """Point every 3D model reference at ``${HACKLIB_3D}/<basename>`` so it resolves
+    on any machine after a sync, regardless of the vendor's original path."""
+    def repl(match):
+        raw = match.group(2).strip('"')
+        base = model_basename or os.path.basename(raw.replace("\\", "/"))
+        return '%s"${HACKLIB_3D}/%s"' % (match.group(1), base)
+    return _MODEL_RE.sub(repl, text)
+
+
 def add_footprint_from_file(uploaded_path, desired_name=None, model_basename=None):
-    """Copy an uploaded .kicad_mod into HackLib.pretty and normalise its 3D path.
+    """Copy an uploaded .kicad_mod into HackLib.pretty verbatim, rewriting only the 3D
+    model path. Works for both modern ``(footprint …)`` and legacy ``(module …)`` files.
 
-    If ``model_basename`` is given, the footprint's 3D model is set to
-    ``${HACKLIB_3D}/<model_basename>``. Any pre-existing model paths are rewritten
-    to the same env-var-relative form so they resolve after a sync.
-
-    Returns the final footprint name.
+    If ``model_basename`` is given it becomes the model path; otherwise any existing model
+    reference is rewritten to ``${HACKLIB_3D}/<its basename>``. Returns the footprint name
+    (which is the file name KiCad shows in the library).
     """
-    fp = Footprint.from_file(uploaded_path)
-    base = desired_name or fp.entryName or os.path.splitext(os.path.basename(uploaded_path))[0]
-
     config.ensure_dirs()
+    base = desired_name or os.path.splitext(os.path.basename(uploaded_path))[0]
     existing = {
         os.path.splitext(f)[0]
         for f in os.listdir(config.FOOTPRINTS_DIR)
         if f.endswith(".kicad_mod")
     }
     name = _unique(sanitize_name(base), existing)
-    fp.entryName = name
 
-    if model_basename:
-        fp.models = [Model(path=f"${{HACKLIB_3D}}/{model_basename}")]
-    else:
-        for m in fp.models:
-            m.path = f"${{HACKLIB_3D}}/{os.path.basename(m.path)}"
+    raw = open(uploaded_path, "rb").read()
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        text = raw.decode("latin-1")
+
+    if "(model" in text:
+        text = _rewrite_model_paths(text, model_basename)
+    elif model_basename:
+        # Footprint has no 3D model line — insert one before the final closing paren.
+        idx = text.rstrip().rfind(")")
+        if idx != -1:
+            block = (
+                '  (model "${HACKLIB_3D}/%s"\n'
+                "    (offset (xyz 0 0 0))\n"
+                "    (scale (xyz 1 1 1))\n"
+                "    (rotate (xyz 0 0 0))\n  )\n" % model_basename
+            )
+            text = text[:idx] + block + text[idx:]
 
     out = os.path.join(config.FOOTPRINTS_DIR, name + ".kicad_mod")
-    fp.to_file(out)
+    # newline="" prevents Windows from doubling CR in CRLF files (\r\n -> \r\r\n), which
+    # would corrupt vendor footprints saved with Windows line endings.
+    with open(out, "w", encoding="utf-8", newline="") as fh:
+        fh.write(text)
     return name
 
 

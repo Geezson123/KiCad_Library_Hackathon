@@ -110,8 +110,9 @@ reuses the `HACKLIB_DIR` path from step 4, so the only thing to set is the serve
 |---------|-----|
 | "Could not load database library" / driver error | 64-bit `SQLite3 ODBC Driver` not installed, or name mismatch — recheck step 1. |
 | Library loads but **no parts** | `hacklib.sqlite` missing from `KiCad_HackLib` — re-run `sync.bat`. |
-| New parts don't show after sync | Click **Refresh** in the Symbol Chooser, or restart KiCad. |
-| Symbol places but **footprint missing** | Footprint library `HackLib` not registered (step 6), or sync not run. |
+| New **symbols** don't show after sync | Click **Refresh** in the Symbol Chooser. |
+| New **footprints** synced (file is in `HackLib.pretty`) but KiCad can't find them | **Restart KiCad.** Footprint libraries are cached — new `.kicad_mod` files are only read when the library is reopened; the Symbol Chooser refresh does *not* reload them. |
+| "Footprint library 'HackLib' not found" | The footprint library table has no entry with nickname **exactly `HackLib`** (step 6). The database rows reference `HackLib:<name>`, so the fp-lib-table nickname must match `HackLib` character-for-character. |
 | 3D model not shown | `HACKLIB_3D` env var not set (step 4), or model wasn't uploaded with the part. |
 
 > **Linux/macOS clients:** the driver name is whatever you set in `odbcinst.ini` (commonly

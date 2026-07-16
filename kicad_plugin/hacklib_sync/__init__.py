@@ -63,10 +63,15 @@ class _ReloadHintDialog(_DialogBase):
 
         body = wx.StaticText(panel, label=(
             "Saved to:\n%s\n\n"
-            "KiCad caches libraries, so reload to see new/updated parts:\n\n"
-            "  1. Schematic Editor → press 'A' to open the Symbol Chooser.\n"
-            "  2. Click the circular ↻ Refresh button (top of the library tree).\n\n"
-            "If parts still don't appear (e.g. the .kicad_dbl changed), restart KiCad."
+            "Reload so KiCad picks up the changes:\n\n"
+            "  • Symbols: open the Symbol Chooser (press 'A') and click the\n"
+            "    circular ↻ Refresh button at the top of the library list.\n\n"
+            "  • Footprints & 3D models: RESTART KiCad. New .kicad_mod files\n"
+            "    are only read when a footprint library is (re)opened — the\n"
+            "    Symbol Chooser refresh does NOT reload them.\n\n"
+            "Note: the count above is the whole library, not just new parts. A\n"
+            "new part adds 2 files (its footprint + 3D model); its symbol is\n"
+            "merged into the shared HackLib.kicad_sym."
             % local_dir
         ))
 
