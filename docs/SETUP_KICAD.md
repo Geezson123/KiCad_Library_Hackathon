@@ -86,8 +86,17 @@ KiCad (PCB Editor) → **Preferences → Manage Footprint Libraries… → Globa
 ## Daily use
 
 1. Someone uploads a part in the web GUI.
-2. You run **`sync.bat`**.
+2. Sync — either double-click **`sync.bat`**, or click the **HackLib: Sync Library**
+   toolbar button in KiCad's PCB editor (see below).
 3. In the Symbol Chooser, click **Refresh** (or restart KiCad) — the new part appears.
+
+## Optional: Sync button inside KiCad
+
+Instead of `sync.bat`, you can install the KiCad plugin so syncing is a toolbar button.
+See **[../kicad_plugin/README.md](../kicad_plugin/README.md)** — copy the `hacklib_sync`
+folder into KiCad's plugin directory (Tools → External Plugins → Open Plugin Directory),
+refresh plugins, and click the green ⤓ button. It reuses the `HACKLIB_DIR` path you set
+in step 4, so there's nothing else to configure beyond the server URL.
 
 ## Troubleshooting
 

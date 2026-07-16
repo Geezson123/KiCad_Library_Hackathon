@@ -39,6 +39,7 @@ bundle:
 | `server/` | Flask app (`app.py`), DB layer (`db.py`), KiCad asset handling (`library.py`) |
 | `library/` | The managed library = the sync bundle. `HackLib.kicad_dbl` + generated content |
 | `client/` | `sync.bat` + `sync_client.py` — the one-click sync for Windows |
+| `kicad_plugin/` | Optional KiCad toolbar-button version of Sync ([README](kicad_plugin/README.md)) |
 | `examples/` | Real example resistor (symbol/footprint/3D) used to seed the demo |
 | `docs/` | [VPS setup](docs/SETUP_VPS.md), [KiCad setup](docs/SETUP_KICAD.md), [demo script](docs/DEMO_SCRIPT.md) |
 | `deploy/` | `hacklib.service` systemd unit |

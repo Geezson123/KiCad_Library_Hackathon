@@ -15,6 +15,7 @@ library/3dmodels/*
 
 # Client machine-specific config
 client/client_config.json
+kicad_plugin/hacklib_sync/hacklib_config.json
 
 # OS / editor
 .DS_Store
