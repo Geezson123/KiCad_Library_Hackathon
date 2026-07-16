@@ -1,0 +1,63 @@
+{
+    "meta": {
+        "version": 0
+    },
+    "name": "HackLib",
+    "description": "Research group shared KiCad library (symbols, footprints, 3D models)",
+    "source": {
+        "type": "odbc",
+        "dsn": "",
+        "username": "",
+        "password": "",
+        "timeout_seconds": 5,
+        "connection_string": "Driver={SQLite3 ODBC Driver};Database=${CWD}/hacklib.sqlite;"
+    },
+    "libraries": [
+        {
+            "name": "Parts",
+            "table": "parts",
+            "key": "id",
+            "symbols": "symbols",
+            "footprints": "footprints",
+            "fields": [
+                {
+                    "column": "value",
+                    "name": "Value",
+                    "visible_on_add": true,
+                    "visible_in_chooser": true
+                },
+                {
+                    "column": "mpn",
+                    "name": "MPN",
+                    "visible_on_add": false,
+                    "visible_in_chooser": true,
+                    "show_name": true
+                },
+                {
+                    "column": "manufacturer",
+                    "name": "Manufacturer",
+                    "visible_on_add": false,
+                    "visible_in_chooser": true,
+                    "show_name": true
+                },
+                {
+                    "column": "category",
+                    "name": "Category",
+                    "visible_on_add": false,
+                    "visible_in_chooser": true,
+                    "show_name": true
+                },
+                {
+                    "column": "datasheet",
+                    "name": "Datasheet",
+                    "visible_on_add": false,
+                    "visible_in_chooser": false
+                }
+            ],
+            "properties": {
+                "description": "description",
+                "keywords": "keywords"
+            }
+        }
+    ]
+}

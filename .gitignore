@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+
+# Runtime-generated library content (rebuilt from examples/ on first server run)
+library/hacklib.sqlite
+library/hacklib.sqlite-*
+library/symbols/HackLib.kicad_sym
+library/footprints/HackLib.pretty/*.kicad_mod
+library/3dmodels/*
+!library/3dmodels/.gitkeep
+
+# Client machine-specific config
+client/client_config.json
+
+# OS / editor
+.DS_Store
+Thumbs.db

@@ -1,0 +1,14 @@
+#VRML V2.0 utf8
+# Simple placeholder 0603 resistor body (a small black box) for demo/3D-viewer use.
+Shape {
+  appearance Appearance {
+    material Material {
+      diffuseColor 0.15 0.15 0.15
+      specularColor 0.2 0.2 0.2
+      shininess 0.2
+    }
+  }
+  geometry Box {
+    size 1.6 0.8 0.45
+  }
+}

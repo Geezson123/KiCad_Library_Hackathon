@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "hacklib",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["server/app.py"],
+      "port": 8000
+    }
+  ]
+}

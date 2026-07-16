@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}{{ part.mpn or part.value or 'Part' }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{{ part.mpn or part.value or ('Part #' ~ part.id) }}</h1>
+  <a class="btn" href="{{ url_for('browse') }}">← Back</a>
+</div>
+
+<div class="card">
+  <dl class="detail">
+    <dt>ID</dt><dd>{{ part.id }}</dd>
+    <dt>Category</dt><dd><span class="chip">{{ part.category or '—' }}</span></dd>
+    <dt>MPN</dt><dd class="mono">{{ part.mpn or '—' }}</dd>
+    <dt>Manufacturer</dt><dd>{{ part.manufacturer or '—' }}</dd>
+    <dt>Value</dt><dd>{{ part.value or '—' }}</dd>
+    <dt>Description</dt><dd>{{ part.description or '—' }}</dd>
+    <dt>Keywords</dt><dd>{{ part.keywords or '—' }}</dd>
+    <dt>Datasheet</dt>
+    <dd>{% if part.datasheet %}<a href="{{ part.datasheet }}" target="_blank" rel="noopener">{{ part.datasheet }}</a>{% else %}—{% endif %}</dd>
+    <dt>Symbol</dt><dd class="mono">{{ part.symbols or '—' }}</dd>
+    <dt>Footprint</dt><dd class="mono">{{ part.footprints or '—' }}</dd>
+    <dt>3D model</dt><dd class="mono">{{ part.model3d or '—' }}</dd>
+    <dt>Added by</dt><dd>{{ part.created_by }} · {{ part.created_at }}</dd>
+  </dl>
+</div>
+
+<p class="hint">To see this part in KiCad, run <code>sync.bat</code> on your machine and refresh the
+   HackLib database library in the Symbol Chooser.</p>
+{% endblock %}

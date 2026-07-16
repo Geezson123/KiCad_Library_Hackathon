@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Upload{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Upload a part</h1></div>
+
+<form class="card form" method="post" action="{{ url_for('upload') }}" enctype="multipart/form-data">
+  <div class="grid2">
+    <label>Category
+      <select name="category">
+        {% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>MPN (manufacturer part number)
+      <input name="mpn" placeholder="e.g. RC0603FR-0710KL">
+    </label>
+    <label>Manufacturer
+      <input name="manufacturer" placeholder="e.g. Yageo">
+    </label>
+    <label>Value
+      <input name="value" placeholder="e.g. 10K">
+    </label>
+    <label class="span2">Description
+      <input name="description" placeholder="Short human-readable description">
+    </label>
+    <label class="span2">Datasheet URL
+      <input name="datasheet" type="url" placeholder="https://…">
+    </label>
+    <label class="span2">Keywords
+      <input name="keywords" placeholder="space-separated, e.g. resistor 10k 0603">
+    </label>
+    <label>Your name
+      <input name="created_by" placeholder="uploader">
+    </label>
+  </div>
+
+  <h3>Files</h3>
+  <div class="grid2">
+    <label class="file required">Symbol <span class="req">*</span> (.kicad_sym)
+      <input type="file" name="symbol" accept=".kicad_sym" required>
+    </label>
+    <label class="file">Footprint (.kicad_mod)
+      <input type="file" name="footprint" accept=".kicad_mod">
+    </label>
+    <label class="file span2">3D model (.step / .stp / .wrl)
+      <input type="file" name="model" accept=".step,.stp,.stpz,.wrl">
+    </label>
+  </div>
+  <p class="hint">The symbol is required. Footprint and 3D model are optional but recommended.
+     The 3D model is auto-linked to the footprint via <code>${HACKLIB_3D}</code>.</p>
+
+  <div class="actions">
+    <button class="btn primary" type="submit">Add part</button>
+    <a class="btn" href="{{ url_for('browse') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

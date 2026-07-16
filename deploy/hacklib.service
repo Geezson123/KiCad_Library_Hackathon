@@ -1,0 +1,18 @@
+[Unit]
+Description=HackLib KiCad library web app
+After=network.target
+
+[Service]
+Type=simple
+# Adjust User and paths to match your VPS.
+User=hacklib
+WorkingDirectory=/opt/hacklib/server
+Environment=PORT=8000
+Environment=HACKLIB_LIBRARY_DIR=/opt/hacklib/library
+# 1 worker keeps RAM tiny; SQLite + this app do not need more for a small group.
+ExecStart=/opt/hacklib/venv/bin/gunicorn -w 1 -b 0.0.0.0:8000 app:app
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
