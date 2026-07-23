@@ -53,9 +53,10 @@ def main():
     except Exception as exc:  # noqa: BLE001
         sys.exit(f"ERROR: sync failed: {exc}")
 
-    print(f"OK - {result['extracted']} files, {result['deleted']} stale file(s) removed.")
-    print("\nDone. In KiCad: refresh the LuGroupLib database library (Symbol Chooser) "
-          "or restart KiCad to pick up changes (restart is needed for footprints).")
+    print("OK - " + core.describe(result))
+    if result["added"] or result["updated"] or result["deleted"]:
+        print("\nIn KiCad: refresh the LuGroupLib database library (Symbol Chooser), "
+              "or restart KiCad to pick up new footprints.")
 
 
 if __name__ == "__main__":

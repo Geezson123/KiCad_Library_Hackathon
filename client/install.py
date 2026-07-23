@@ -119,9 +119,7 @@ def main():
         ok(f"would sync {server}/api/bundle -> {local_dir}")
     else:
         try:
-            result = core.sync(server, local_dir, token=token)
-            ok(f"{result['extracted']} files downloaded"
-               + (f", {result['deleted']} stale removed" if result["deleted"] else ""))
+            ok(core.describe(core.sync(server, local_dir, token=token)))
         except core.AuthError as exc:
             warn(str(exc))
             warn("configuration will continue; re-run after fixing the token")

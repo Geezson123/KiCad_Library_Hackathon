@@ -53,14 +53,11 @@ _DialogBase = wx.Dialog if HAVE_WX else object
 class _ReloadHintDialog(_DialogBase):
     """Small dialog shown after a successful sync, explaining how to reload libraries."""
 
-    def __init__(self, count, deleted, local_dir):
+    def __init__(self, summary, local_dir):
         super().__init__(None, title="LuGroupLib Sync", style=wx.DEFAULT_DIALOG_STYLE)
         panel = wx.Panel(self)
         outer = wx.BoxSizer(wx.VERTICAL)
 
-        summary = "Synced %d files." % count
-        if deleted:
-            summary += "  Removed %d deleted file(s)." % deleted
         heading = wx.StaticText(panel, label=summary)
         font = heading.GetFont()
         font.MakeBold()
@@ -74,10 +71,7 @@ class _ReloadHintDialog(_DialogBase):
             "    circular ↻ Refresh button at the top of the library list.\n\n"
             "  • Footprints & 3D models: RESTART KiCad. New .kicad_mod files\n"
             "    are only read when a footprint library is (re)opened — the\n"
-            "    Symbol Chooser refresh does NOT reload them.\n\n"
-            "Note: the count above is the whole library, not just new parts. A\n"
-            "new part adds 2 files (its footprint + 3D model); its symbol is\n"
-            "merged into the shared LuGroupLib.kicad_sym."
+            "    Symbol Chooser refresh does NOT reload them."
             % local_dir
         ))
 
@@ -153,13 +147,13 @@ class LuGroupLibSyncPlugin(pcbnew.ActionPlugin):
             self._error("Sync failed:\n%s\n\nServer: %s" % (exc, server_url))
             return
 
+        summary = core.describe(result)
         if HAVE_WX:
-            dlg = _ReloadHintDialog(result["extracted"], result["deleted"], local_dir)
+            dlg = _ReloadHintDialog(summary, local_dir)
             dlg.ShowModal()
             dlg.Destroy()
         else:
-            print("Synced %d files (%d removed) to %s"
-                  % (result["extracted"], result["deleted"], local_dir))
+            print("%s -> %s" % (summary, local_dir))
 
     def _prompt(self, label, default):
         """Ask for a single value. Returns the string, or None if the user cancelled."""

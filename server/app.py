@@ -20,6 +20,7 @@ import csrf
 import db
 import dbl
 import library
+import manifest
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 64 * 1024 * 1024  # 64 MB uploads
@@ -533,6 +534,45 @@ def tokens():
     return render_template("tokens.html", tokens=auth.list_tokens(user["id"]), fresh=fresh)
 
 
+def _require_sync_auth():
+    """None if the caller may read library data, else a 401 response.
+
+    401 + WWW-Authenticate rather than a redirect, so the sync client reports "bad
+    token" instead of silently unzipping an HTML login page.
+    """
+    if auth.bundle_user() is not None:
+        return None
+    return jsonify({
+        "error": "authentication required",
+        "detail": "Create a sync token at /tokens and put it in your client config.",
+    }), 401, {"WWW-Authenticate": "Bearer"}
+
+
+@app.route("/api/manifest")
+def api_manifest():
+    """Hash of every bundled file, so a client can fetch only what changed."""
+    denied = _require_sync_auth()
+    if denied:
+        return denied
+    dbl.build()  # same freshness guarantee as /api/bundle
+    return jsonify({"files": manifest.build()})
+
+
+@app.route("/api/file/<path:rel_path>")
+def api_file(rel_path):
+    """Serve one file from the library, for incremental sync."""
+    denied = _require_sync_auth()
+    if denied:
+        return denied
+    full = manifest.resolve(rel_path)
+    if not full:
+        # Covers both "no such file" and "tried to escape the library directory";
+        # they are deliberately indistinguishable to the caller.
+        abort(404)
+    return send_file(full, as_attachment=True,
+                     download_name=os.path.basename(full))
+
+
 @app.route("/api/bundle")
 def api_bundle():
     """Return a zip of the whole library/ folder for the sync client.
@@ -541,13 +581,9 @@ def api_bundle():
     session. Read access is deliberately all-or-nothing: every member sees every
     part, so there is one bundle rather than one per user.
     """
-    if auth.bundle_user() is None:
-        # 401 + WWW-Authenticate so the sync client can report "bad token" rather than
-        # silently unzipping an HTML login page.
-        return jsonify({
-            "error": "authentication required",
-            "detail": "Create a sync token at /tokens and put it in your client config.",
-        }), 401, {"WWW-Authenticate": "Bearer"}
+    denied = _require_sync_auth()
+    if denied:
+        return denied
     # Regenerate rather than trusting that whatever last touched the libraries table
     # remembered to. The bundle is the only copy anyone downstream ever sees, so it is
     # the right place to guarantee the .kicad_dbl matches the database.
