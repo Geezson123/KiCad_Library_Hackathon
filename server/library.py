@@ -199,6 +199,19 @@ def add_footprint_from_file(uploaded_path, desired_name=None, model_basename=Non
     return name
 
 
+def list_footprints():
+    """Every footprint name currently in the library, sorted.
+
+    Used to scope the AI's footprint suggestions to packages that actually exist here.
+    """
+    config.ensure_dirs()
+    return sorted(
+        os.path.splitext(f)[0]
+        for f in os.listdir(config.FOOTPRINTS_DIR)
+        if f.endswith(".kicad_mod")
+    )
+
+
 def remove_footprint(name):
     """Delete a footprint file from LuGroupLib.pretty."""
     if not name:

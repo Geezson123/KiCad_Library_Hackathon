@@ -59,6 +59,17 @@ DEV_LOGIN = os.environ.get("LUGROUPLIB_DEV_LOGIN", "") == "1"
 def slack_configured():
     return bool(SLACK_CLIENT_ID and SLACK_CLIENT_SECRET)
 
+
+# ---------------------------------------------------------------------------
+# Part ingest (Stage 6)
+# ---------------------------------------------------------------------------
+# Free key from https://www.mouser.com/api-hub/ — supplies the factual part data.
+MOUSER_API_KEY = os.environ.get("LUGROUPLIB_MOUSER_KEY", "")
+
+# Optional. Only used for the judgement calls (category, keywords, footprint match);
+# ingest still works without it, just with more fields left for the user to fill in.
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+
 # The single nickname every part is filed under. Keeps the KiCad symbol/footprint
 # library tables to one entry each.
 LIB_NICKNAME = "LuGroupLib"

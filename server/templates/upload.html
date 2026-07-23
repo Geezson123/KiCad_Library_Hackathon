@@ -1,7 +1,35 @@
 {% extends "base.html" %}
 {% block title %}Upload{% endblock %}
 {% block content %}
-<div class="page-head"><h1>Upload a part</h1></div>
+{% set d = draft or {} %}
+<div class="page-head">
+  <h1>Upload a part</h1>
+  {% if not d and mouser_enabled %}
+    <a class="btn" href="{{ url_for('upload_from_mouser') }}">⚡ Add from Mouser link</a>
+  {% endif %}
+</div>
+
+{% if d %}
+<div class="card draft-banner">
+  <h3>Drafted from Mouser{% if d.ai_used %} + AI{% endif %}</h3>
+  <dl class="detail">
+    <dt>Mouser P/N</dt><dd class="mono">{{ d.mouser_pn or '—' }}</dd>
+    <dt>Stock</dt><dd>{{ d.availability or '—' }}{% if d.price %} · {{ d.price }}{% endif %}</dd>
+    {% if d.suggested_footprint %}
+      <dt>Suggested footprint</dt>
+      <dd class="mono">{{ d.suggested_footprint }}
+        <span class="chip ai">AI guess</span></dd>
+    {% endif %}
+    {% if d.notes %}<dt>Notes</dt><dd>{{ d.notes }}</dd>{% endif %}
+  </dl>
+  <p class="hint">
+    MPN, manufacturer, description and datasheet came straight from Mouser.
+    {% if d.ai_used %}Category, keywords and value are <strong>AI suggestions</strong> —
+    they're marked below. Check them before saving.{% endif %}
+    Nothing has been added to the library yet.
+  </p>
+</div>
+{% endif %}
 
 <form class="card form" method="post" action="{{ url_for('upload') }}" enctype="multipart/form-data">
   {{ csrf_input() }}
@@ -13,28 +41,32 @@
         {% endfor %}
       </select>
     </label>
-    <label>Category
+    <label>Category {% if d.ai_used and d.category %}<span class="chip ai">AI</span>{% endif %}
       <select name="category">
-        {% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+        {% for c in categories %}
+          <option value="{{ c }}" {{ 'selected' if c == d.category else '' }}>{{ c }}</option>
+        {% endfor %}
       </select>
     </label>
     <label>MPN (manufacturer part number)
-      <input name="mpn" placeholder="e.g. RC0603FR-0710KL">
+      <input name="mpn" value="{{ d.mpn or '' }}" placeholder="e.g. RC0603FR-0710KL">
     </label>
     <label>Manufacturer
-      <input name="manufacturer" placeholder="e.g. Yageo">
+      <input name="manufacturer" value="{{ d.manufacturer or '' }}" placeholder="e.g. Yageo">
     </label>
-    <label>Value
-      <input name="value" placeholder="e.g. 10K">
+    <label>Value {% if d.ai_used and d.value %}<span class="chip ai">AI</span>{% endif %}
+      <input name="value" value="{{ d.value or '' }}" placeholder="e.g. 10K">
     </label>
     <label class="span2">Description
-      <input name="description" placeholder="Short human-readable description">
+      <input name="description" value="{{ d.description or '' }}"
+             placeholder="Short human-readable description">
     </label>
     <label class="span2">Datasheet URL
-      <input name="datasheet" type="url" placeholder="https://…">
+      <input name="datasheet" type="url" value="{{ d.datasheet or '' }}" placeholder="https://…">
     </label>
-    <label class="span2">Keywords
-      <input name="keywords" placeholder="space-separated, e.g. resistor 10k 0603">
+    <label class="span2">Keywords {% if d.ai_used and d.keywords %}<span class="chip ai">AI</span>{% endif %}
+      <input name="keywords" value="{{ d.keywords or '' }}"
+             placeholder="space-separated, e.g. resistor 10k 0603">
     </label>
   </div>
   <p class="hint">Uploading as <strong>{{ current_user.name }}</strong> — you'll be able to
@@ -52,7 +84,8 @@
       <input type="file" name="model" accept=".step,.stp,.stpz,.wrl">
     </label>
   </div>
-  <p class="hint">The symbol is required. Footprint and 3D model are optional but recommended.
+  <p class="hint">The symbol is required — Mouser doesn't publish KiCad symbols, so this
+     is always yours to attach. Footprint and 3D model are optional but recommended.
      The 3D model is auto-linked to the footprint via <code>${LUGROUPLIB_3D}</code>.</p>
 
   <div class="actions">

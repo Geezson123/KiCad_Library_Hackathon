@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Add from Mouser{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Add a part from Mouser</h1></div>
+
+{% if not mouser_enabled %}
+  <div class="flash flash-error">
+    <strong>Mouser lookup isn't configured.</strong>
+    Get a free API key at <code>mouser.com/api-hub</code> and set
+    <code>LUGROUPLIB_MOUSER_KEY</code> on the server.
+  </div>
+{% endif %}
+
+<form class="card form" method="post" action="{{ url_for('upload_from_mouser') }}">
+  {{ csrf_input() }}
+  <label>Mouser product link
+    <input name="url" required autofocus
+           placeholder="https://www.mouser.com/ProductDetail/Yageo/RC0603FR-0710KL">
+  </label>
+  <p class="hint">
+    A part number on its own works too. We read the part number out of the link and ask
+    the Mouser API about it — the link itself is never fetched.
+  </p>
+  <div class="actions">
+    <button class="btn primary" type="submit" {{ 'disabled' if not mouser_enabled }}>
+      Look up part
+    </button>
+    <a class="btn" href="{{ url_for('upload') }}">Upload manually instead</a>
+  </div>
+</form>
+
+<div class="card">
+  <h3>What this does</h3>
+  <dl class="detail">
+    <dt>From Mouser</dt>
+    <dd>MPN, manufacturer, description, datasheet link, stock and price — copied
+        exactly as Mouser has them.</dd>
+    <dt>From AI</dt>
+    <dd>{% if ai_enabled %}Category, search keywords, component value, and a suggested
+        footprint from the ones already in your library. These are <strong>guesses</strong>
+        and are marked as such on the next screen.{% else %}Disabled — no
+        <code>ANTHROPIC_API_KEY</code> is set. Lookup still works; you'll fill in the
+        category and keywords yourself.{% endif %}</dd>
+    <dt>Still up to you</dt>
+    <dd>The symbol. Mouser doesn't have <code>.kicad_sym</code> files, so you'll attach
+        one on the next screen — and check everything before saving.</dd>
+  </dl>
+  <p class="hint">
+    Nothing is added to the library on this screen. You'll get a filled-in upload form
+    to review first.
+  </p>
+</div>
+{% endblock %}

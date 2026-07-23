@@ -120,3 +120,8 @@ pre.token { background: var(--panel-2); border: 1px solid var(--accent); border-
 tr.deprecated td { opacity: .5; }
 .btn.small { padding: 4px 10px; font-size: 12px; }
 h2 { margin: 28px 0 12px; font-size: 18px; }
+
+/* --- Mouser / AI ingest (Stage 6) --- */
+.chip.ai { border-color: var(--accent); color: var(--accent); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+.draft-banner { border-color: var(--accent); margin-bottom: 18px; }
+.draft-banner h3 { margin: 0 0 12px; }

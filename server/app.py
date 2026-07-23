@@ -14,6 +14,7 @@ from flask import (
 )
 from werkzeug.utils import secure_filename
 
+import ai
 import auth
 import config
 import csrf
@@ -21,6 +22,7 @@ import db
 import dbl
 import library
 import manifest
+import mouser
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 64 * 1024 * 1024  # 64 MB uploads
@@ -318,6 +320,53 @@ def part_editors(part_id):
     return redirect(url_for("part_detail", part_id=part_id))
 
 
+@app.route("/upload/from-mouser", methods=["GET", "POST"])
+@auth.login_required
+def upload_from_mouser():
+    """Draft a part from a Mouser link, then hand it to the normal upload form.
+
+    Deliberately a two-step flow. This route only *drafts* — it writes nothing to the
+    library. The user reviews and submits the prefilled form, so an AI-suggested
+    footprint or category always passes under human eyes before it reaches a shared
+    library other people will build boards from.
+    """
+    if request.method == "GET":
+        return render_template(
+            "mouser.html",
+            mouser_enabled=mouser.configured(),
+            ai_enabled=ai.configured(),
+        )
+
+    try:
+        part = mouser.lookup(request.form.get("url", ""))
+    except mouser.MouserError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("upload_from_mouser"))
+
+    draft = ai.enrich(part, CATEGORIES, library.list_footprints())
+
+    # Merge Mouser's facts with the model's judgement calls. Facts win: the model is
+    # never given the chance to restate an MPN or datasheet URL.
+    session["mouser_draft"] = {
+        "mpn": part["mpn"],
+        "manufacturer": part["manufacturer"],
+        "description": part["description"],
+        "datasheet": part["datasheet"],
+        "mouser_pn": part["mouser_pn"],
+        "availability": part["availability"],
+        "price": part["price"],
+        "category": draft.get("category", ""),
+        "keywords": draft.get("keywords", ""),
+        "value": draft.get("value", ""),
+        "suggested_footprint": draft.get("suggested_footprint"),
+        "notes": draft.get("notes", ""),
+        "ai_used": draft.get("ai_used", False),
+    }
+    flash(f"Found {part['mpn'] or 'the part'} on Mouser. Review the details below, "
+          "attach a symbol, and save.", "success")
+    return redirect(url_for("upload"))
+
+
 @app.route("/upload", methods=["GET", "POST"])
 @auth.login_required
 def upload():
@@ -329,7 +378,11 @@ def upload():
             flash("You are not a member of any library yet. Create one, or ask a "
                   "library owner to add you.", "error")
             return redirect(url_for("libraries"))
-        return render_template("upload.html", categories=CATEGORIES, libraries=allowed)
+        return render_template(
+            "upload.html", categories=CATEGORIES, libraries=allowed,
+            draft=session.pop("mouser_draft", None),
+            mouser_enabled=mouser.configured(),
+        )
 
     f = request.form
     lib = db.get_library(f.get("library_id", type=int) or 0)
