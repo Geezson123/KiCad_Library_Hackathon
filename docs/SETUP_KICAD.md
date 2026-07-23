@@ -1,120 +1,152 @@
-# KiCad + Windows setup (one-time, per laptop)
+# KiCad setup (one-time, per machine)
 
-Do this **once** on each member's machine (and **early** on the demo laptop — the ODBC
-driver is the single most common failure point). After this, syncing is just running
-`sync.bat`.
+Requires **KiCad 7 or newer** — database libraries do not exist before that.
 
-Menu paths below are for **KiCad 8/9**; KiCad 7 is nearly identical. KiCad 7+ is required
-for database libraries.
+## The short version
+
+1. Install the SQLite ODBC driver (below — **do this first**, it is the most common
+   failure point).
+2. Sign in to the LuGroupLib website with Slack and create a sync token at `/tokens`.
+3. Run the installer:
+   - **Windows:** double-click `client\install.bat`
+   - **macOS:** double-click `client/install.command` (first time:
+     `chmod +x install.command`)
+   - **Linux:** `python3 client/install.py`
+4. Open KiCad, press `A` in the schematic editor, and look for **`LuGroupLib_DB`**.
+
+The installer asks for the server URL and your token, downloads the library, sets
+KiCad's path variables, and registers the libraries. **Close KiCad before running it** —
+KiCad rewrites its own configuration when it exits, so it would discard the changes.
+
+Useful flags:
+
+```bash
+python install.py --dry-run
+```
+
+shows exactly what would change without touching anything. `--kicad-version 8.0` targets
+a specific KiCad when several are installed; re-run it once per version if you use more
+than one. Every file the installer edits is copied to `<name>.lugrouplib-bak` first, and
+re-running is safe — entries are replaced, never duplicated.
 
 ---
 
-## 1. Install the SQLite ODBC driver (64-bit) — DO THIS FIRST
+## 1. Install the SQLite ODBC driver
+
+This is the one step the installer will not do for you: it detects the driver and tells
+you what is missing, but never downloads and runs a third-party installer on your behalf.
+
+### Windows
 
 KiCad is 64-bit, so you need the **64-bit** driver.
 
 1. Download **`sqliteodbc_w64.exe`** from <http://www.ch-werner.de/sqliteodbc/>.
-2. Run the installer (Next → Next → Finish).
-3. Verify: open **ODBC Data Source Administrator (64-bit)** (search "ODBC" in the Start
-   menu, pick the **64-bit** one) → **Drivers** tab → confirm **`SQLite3 ODBC Driver`**
-   is listed.
+2. Run it (Next → Next → Finish).
+3. Verify: **ODBC Data Source Administrator (64-bit)** → **Drivers** tab shows
+   **`SQLite3 ODBC Driver`**.
 
 > The name must read exactly **`SQLite3 ODBC Driver`** — that string is what
-> `LuGroupLib.kicad_dbl` uses in its connection string. If you see only a 32-bit driver,
-> re-run the `_w64` installer.
+> `LuGroupLib.kicad_dbl` asks for. A 32-bit-only install is the usual near-miss.
 
-## 2. Install Python (for the sync client)
+### macOS
 
-Install Python 3 from <https://www.python.org/downloads/> and tick **"Add python.exe to
-PATH"**. The sync client uses only the standard library — nothing else to install.
+There is no packaged driver, so this is a little more work than on Windows:
 
-## 3. Do a first sync to create the local library folder
+```bash
+brew install unixodbc sqliteodbc
+odbcinst -q -d
+```
 
-1. Copy `client/client_config.example.json` to `client/client_config.json`.
-2. Edit it:
-   ```json
-   {
-     "server_url": "http://YOUR_VPS_IP:8000",
-     "local_dir": "%USERPROFILE%\\Documents\\KiCad_LuGroupLib"
-   }
-   ```
-3. Double-click **`client/sync.bat`**. It downloads the bundle into
-   `Documents\KiCad_LuGroupLib\`, which should now contain `LuGroupLib.kicad_dbl`,
-   `lugrouplib.sqlite`, `symbols\`, `footprints\`, and `3dmodels\`.
+The last command lists the driver names actually registered. If it prints something
+other than `SQLite3 ODBC Driver` (commonly just `SQLite3`), edit the `connection_string`
+in `LuGroupLib.kicad_dbl` to match. The file uses `${CWD}`, so no paths need changing.
 
-## 4. Define KiCad environment variables
+On Apple Silicon, check that Homebrew and KiCad agree on architecture — a driver built
+for `arm64` will not load into an `x86_64` KiCad, or vice versa.
 
-KiCad → **Preferences → Configure Paths… → Environment Variables**, add two:
+### Linux
+
+```bash
+sudo apt install unixodbc libsqliteodbc     # or your distribution's equivalent
+odbcinst -q -d
+```
+
+Same rule about the driver name.
+
+## 2. Get a sync token
+
+Everything past browsing needs a signed-in account, and the sync client authenticates
+with a token rather than a browser session.
+
+1. Open the LuGroupLib website and **Sign in with Slack**.
+2. Go to **Sync tokens** → **Create token**. Label it after the machine.
+3. Copy it immediately — it is stored hashed and is never shown again.
+
+Make one token per machine, so losing a laptop means revoking one token rather than
+resetting everyone's.
+
+---
+
+## What the installer actually does
+
+Useful if you are debugging, or prefer to do it by hand.
+
+**Path variables** (`Preferences → Configure Paths…`):
 
 | Name | Value |
 |------|-------|
-| `LUGROUPLIB_DIR` | `C:\Users\<you>\Documents\KiCad_LuGroupLib` |
+| `LUGROUPLIB_DIR` | your local library folder, e.g. `C:\Users\<you>\Documents\KiCad_LuGroupLib` |
 | `LUGROUPLIB_3D`  | `${LUGROUPLIB_DIR}/3dmodels` |
 
-(`LUGROUPLIB_3D` is how footprints find their 3D models after a sync.)
+**Symbol libraries** (`Preferences → Manage Symbol Libraries… → Global`) — two entries,
+and the nicknames matter:
 
-## 5. Register the symbol libraries
+| Nickname | Type | Path |
+|----------|------|------|
+| `LuGroupLib` | KiCad | `${LUGROUPLIB_DIR}/symbols/LuGroupLib.kicad_sym` |
+| `LuGroupLib_DB` | Database | `${LUGROUPLIB_DIR}/LuGroupLib.kicad_dbl` |
 
-KiCad (Schematic Editor) → **Preferences → Manage Symbol Libraries… → Global Libraries**:
+`LuGroupLib_DB` is the one you browse. `LuGroupLib` is where it fetches the actual symbol
+geometry from: database rows store references like `LuGroupLib:R_10K`, so that nickname
+has to match **character-for-character** or every part will load with a broken symbol.
 
-1. Add a normal symbol library (📁 icon):
-   - **Nickname:** `LuGroupLib`
-   - **Library Path:** `${LUGROUPLIB_DIR}/symbols/LuGroupLib.kicad_sym`
-2. Add the **database** library (the icon for adding a database library, or "Add
-   existing" and pick the `.kicad_dbl`):
-   - **Nickname:** `LuGroupLib_DB`
-   - **Library Path:** `${LUGROUPLIB_DIR}/LuGroupLib.kicad_dbl`
-   - **Plugin type:** Database
+**Footprint library** (`Preferences → Manage Footprint Libraries… → Global`):
 
-## 6. Register the footprint library
+| Nickname | Type | Path |
+|----------|------|------|
+| `LuGroupLib` | KiCad | `${LUGROUPLIB_DIR}/footprints/LuGroupLib.pretty` |
 
-KiCad (PCB Editor) → **Preferences → Manage Footprint Libraries… → Global Libraries**:
+## 3. Confirm it works
 
-- **Nickname:** `LuGroupLib`
-- **Library Path:** `${LUGROUPLIB_DIR}/footprints/LuGroupLib.pretty`
-
-## 7. Confirm it works
-
-- Schematic Editor → **Place → Add Symbol** (`A`) → in the chooser you should see the
-  **`LuGroupLib_DB` → Parts** library with the seeded resistor and its fields (MPN, Value,
-  Manufacturer). Place it.
-- The placed symbol already carries its footprint (`LuGroupLib:R_0603`); the footprint's 3D
-  model resolves via `${LUGROUPLIB_3D}`.
+Schematic Editor → **Place → Add Symbol** (`A`). You should see **`LuGroupLib_DB`** with
+one entry per sub-group beneath it — `General`, plus whatever libraries your lab has
+created. Place a part; it arrives with its footprint already assigned, and the 3D model
+resolves through `${LUGROUPLIB_3D}`.
 
 ---
 
 ## Daily use
 
-1. Someone uploads a part in the web GUI.
-2. Sync — either double-click **`sync.bat`**, or click the **LuGroupLib: Sync Library**
-   toolbar button in KiCad's PCB editor (see below).
-3. In the Symbol Chooser, click **Refresh** (or restart KiCad) — the new part appears.
-
-## Optional: Sync button inside KiCad
-
-Instead of `sync.bat`, you can install the KiCad plugin so syncing is a toolbar button.
-See **[../kicad_plugin/README.md](../kicad_plugin/README.md)**. Two ways to install:
-
-- **Plugin & Content Manager (recommended):** Plugins → Plugin and Content Manager →
-  **Install from File…** → pick `kicad_plugin/dist/LuGroupLib-Sync-1.0.0.zip`.
-- **Manual:** copy the `lugrouplib_sync` folder into KiCad's plugin directory (Tools →
-  External Plugins → Open Plugin Directory) and Refresh Plugins.
-
-Either way, a green ⤓ **LuGroupLib: Sync Library** button appears in the PCB editor. It
-reuses the `LUGROUPLIB_DIR` path from step 4, so the only thing to set is the server URL
-(asked once on first click).
+1. Someone uploads a part on the website.
+2. Sync — double-click `sync.bat`, or use the **LuGroupLib: Sync Library** toolbar button
+   in the PCB editor (see [../kicad_plugin/README.md](../kicad_plugin/README.md)).
+3. Symbol Chooser → **Refresh**. New footprints need a full KiCad restart.
 
 ## Troubleshooting
 
 | Symptom | Fix |
 |---------|-----|
-| "Could not load database library" / driver error | 64-bit `SQLite3 ODBC Driver` not installed, or name mismatch — recheck step 1. |
-| Library loads but **no parts** | `lugrouplib.sqlite` missing from `KiCad_LuGroupLib` — re-run `sync.bat`. |
-| New **symbols** don't show after sync | Click **Refresh** in the Symbol Chooser. |
-| New **footprints** synced (file is in `LuGroupLib.pretty`) but KiCad can't find them | **Restart KiCad.** Footprint libraries are cached — new `.kicad_mod` files are only read when the library is reopened; the Symbol Chooser refresh does *not* reload them. |
-| "Footprint library 'LuGroupLib' not found" | The footprint library table has no entry with nickname **exactly `LuGroupLib`** (step 6). The database rows reference `LuGroupLib:<name>`, so the fp-lib-table nickname must match `LuGroupLib` character-for-character. |
-| 3D model not shown | `LUGROUPLIB_3D` env var not set (step 4), or model wasn't uploaded with the part. |
+| "Could not load database library" | ODBC driver missing or misnamed — see step 1. Run `python install.py --dry-run`, which reports what it finds. |
+| Library loads but **no parts** | `lugrouplib.sqlite` missing from your library folder — re-run `sync.bat`. |
+| Sync says **"the server rejected your sync token"** | The token was revoked or mistyped. Create a new one at `/tokens`. The KiCad plugin clears a rejected token so it re-prompts next run. |
+| Sync returns **401** | You have no token at all. `client_config.json` needs a `"token"` value. |
+| Every part has a **broken symbol** | The plain `LuGroupLib` symbol library entry is missing or misnamed — it must match the `LuGroupLib:` prefix in the database rows exactly. |
+| "Footprint library 'LuGroupLib' not found" | Same problem on the footprint side. |
+| New **symbols** don't appear | Symbol Chooser → **Refresh**. |
+| New **footprints** don't appear | **Restart KiCad.** Footprint libraries are cached and the chooser refresh does not reload them. |
+| A **new sub-library** doesn't appear | Sync again — sub-libraries live in `LuGroupLib.kicad_dbl`, which the bundle regenerates. Nothing needs reconfiguring locally. |
+| 3D model missing | `LUGROUPLIB_3D` not set, or the part was uploaded without a model. |
+| Installer changes seem to vanish | KiCad was open. It writes its configuration on exit and overwrote them. Close KiCad and re-run. |
 
-> **Linux/macOS clients:** the driver name is whatever you set in `odbcinst.ini` (commonly
-> `SQLite3`). If it differs from `SQLite3 ODBC Driver`, edit the `connection_string` in
-> `LuGroupLib.kicad_dbl` to match. Since the file uses `${CWD}`, no path edits are needed.
+To undo anything the installer did, restore the `.lugrouplib-bak` files next to KiCad's
+`sym-lib-table`, `fp-lib-table`, and `kicad_common.json`.

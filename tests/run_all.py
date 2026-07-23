@@ -12,7 +12,7 @@ import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SUITES = ["test_auth.py", "test_libraries.py", "test_csrf.py"]
+SUITES = ["test_auth.py", "test_libraries.py", "test_csrf.py", "test_installer.py"]
 
 
 def main():
