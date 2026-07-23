@@ -1,16 +1,16 @@
 [Unit]
-Description=HackLib KiCad library web app
+Description=LuGroupLib KiCad library web app
 After=network.target
 
 [Service]
 Type=simple
 # Adjust User and paths to match your VPS.
-User=hacklib
-WorkingDirectory=/opt/hacklib/server
+User=lugrouplib
+WorkingDirectory=/opt/lugrouplib/server
 Environment=PORT=8000
-Environment=HACKLIB_LIBRARY_DIR=/opt/hacklib/library
+Environment=LUGROUPLIB_LIBRARY_DIR=/opt/lugrouplib/library
 # 1 worker keeps RAM tiny; SQLite + this app do not need more for a small group.
-ExecStart=/opt/hacklib/venv/bin/gunicorn -w 1 -b 0.0.0.0:8000 app:app
+ExecStart=/opt/lugrouplib/venv/bin/gunicorn -w 1 -b 0.0.0.0:8000 app:app
 Restart=on-failure
 RestartSec=3
 

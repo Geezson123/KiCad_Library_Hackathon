@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}New library{% endblock %}
+{% block content %}
+<div class="page-head"><h1>New library</h1></div>
+
+<form class="card form" method="post" action="{{ url_for('new_library') }}">
+  {{ csrf_input() }}
+  <label>Name
+    <input name="name" id="libname" required autofocus
+           pattern="[A-Za-z0-9_.+\-]{1,48}"
+           placeholder="e.g. RF_Frontend">
+  </label>
+  <p class="hint">
+    Letters, numbers and <code>_ . + -</code> only — no spaces, no <code>/</code> or
+    <code>:</code>. Parts in this library will be placed as
+    <code class="mono" id="libpreview">LuGroupLib:NAME/&lt;part&gt;</code>.
+    <strong>This name is permanent once the library holds its first part</strong>, because
+    it becomes part of the link from every schematic symbol back to the library. Pick
+    something durable — tied to what the group does, not to a person, grant, or current
+    project.
+  </p>
+
+  <h3>Kind</h3>
+  <label class="check">
+    <input type="radio" name="kind" value="group" checked>
+    <span><strong>Sub-group library</strong> — only members you add can upload or edit
+      parts here. Use this for a specific project team.</span>
+  </label>
+  <label class="check">
+    <input type="radio" name="kind" value="common">
+    <span><strong>Common library</strong> — anyone in the workspace can add parts, but
+      each part stays editable only by whoever uploaded it and the people they invite.
+      Use this for shared jellybean parts.</span>
+  </label>
+
+  <label>Description
+    <input name="description" placeholder="What belongs in this library?">
+  </label>
+
+  <div class="actions">
+    <button class="btn primary" type="submit">Create library</button>
+    <a class="btn" href="{{ url_for('libraries') }}">Cancel</a>
+  </div>
+</form>
+
+<script>
+  // Make the permanence of the name concrete while it is still free to change.
+  const input = document.getElementById('libname');
+  const preview = document.getElementById('libpreview');
+  input.addEventListener('input', () => {
+    const v = input.value || 'NAME';
+    preview.textContent = `LuGroupLib:${v}/<part>`;
+  });
+</script>
+{% endblock %}

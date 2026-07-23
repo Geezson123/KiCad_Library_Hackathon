@@ -4,7 +4,15 @@
 <div class="page-head"><h1>Upload a part</h1></div>
 
 <form class="card form" method="post" action="{{ url_for('upload') }}" enctype="multipart/form-data">
+  {{ csrf_input() }}
   <div class="grid2">
+    <label class="span2">Library
+      <select name="library_id" required>
+        {% for l in libraries %}
+          <option value="{{ l.id }}">{{ l.name }} — {{ 'common' if l.kind == 'common' else 'sub-group' }}</option>
+        {% endfor %}
+      </select>
+    </label>
     <label>Category
       <select name="category">
         {% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
@@ -28,10 +36,9 @@
     <label class="span2">Keywords
       <input name="keywords" placeholder="space-separated, e.g. resistor 10k 0603">
     </label>
-    <label>Your name
-      <input name="created_by" placeholder="uploader">
-    </label>
   </div>
+  <p class="hint">Uploading as <strong>{{ current_user.name }}</strong> — you'll be able to
+     edit this part later, and can invite others to edit it too.</p>
 
   <h3>Files</h3>
   <div class="grid2">
@@ -46,7 +53,7 @@
     </label>
   </div>
   <p class="hint">The symbol is required. Footprint and 3D model are optional but recommended.
-     The 3D model is auto-linked to the footprint via <code>${HACKLIB_3D}</code>.</p>
+     The 3D model is auto-linked to the footprint via <code>${LUGROUPLIB_3D}</code>.</p>
 
   <div class="actions">
     <button class="btn primary" type="submit">Add part</button>

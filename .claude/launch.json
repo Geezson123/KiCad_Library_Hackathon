@@ -2,10 +2,14 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "hacklib",
+      "name": "lugrouplib",
       "runtimeExecutable": "python",
       "runtimeArgs": ["server/app.py"],
-      "port": 8000
+      "port": 8000,
+      "env": {
+        "LUGROUPLIB_DEV_LOGIN": "1",
+        "LUGROUPLIB_SECRET": "local-dev-only"
+      }
     }
   ]
 }

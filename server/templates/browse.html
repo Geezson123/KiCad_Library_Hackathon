@@ -8,6 +8,14 @@
 
 <form class="filters" method="get" action="{{ url_for('browse') }}">
   <input type="search" name="q" value="{{ q }}" placeholder="Search MPN, value, description, keywords…" autofocus>
+  <select name="library" onchange="this.form.submit()">
+    <option value="">All libraries</option>
+    {% for l in libraries %}
+      <option value="{{ l.id }}" {{ 'selected' if l.id|string == library_id else '' }}>
+        {{ l.name }} ({{ l.part_count }})
+      </option>
+    {% endfor %}
+  </select>
   <select name="category" onchange="this.form.submit()">
     <option value="">All categories</option>
     {% for c in categories %}
@@ -15,21 +23,23 @@
     {% endfor %}
   </select>
   <button type="submit">Search</button>
-  {% if q or category %}<a class="clear" href="{{ url_for('browse') }}">Clear</a>{% endif %}
+  {% if q or category or library_id %}<a class="clear" href="{{ url_for('browse') }}">Clear</a>{% endif %}
 </form>
 
 {% if parts %}
 <table class="parts">
   <thead>
     <tr>
-      <th>#</th><th>Category</th><th>MPN</th><th>Value</th><th>Manufacturer</th>
+      <th>#</th><th>Library</th><th>Category</th><th>MPN</th><th>Value</th><th>Manufacturer</th>
       <th>Symbol</th><th>Footprint</th><th>3D</th>
     </tr>
   </thead>
   <tbody>
     {% for p in parts %}
-    <tr onclick="location.href='{{ url_for('part_detail', part_id=p.id) }}'">
+    <tr onclick="location.href='{{ url_for('part_detail', part_id=p.id) }}'"
+        class="{{ 'deprecated' if p.deprecated else '' }}">
       <td>{{ p.id }}</td>
+      <td class="mono small">{{ library_names.get(p.library_id, '—') }}</td>
       <td><span class="chip">{{ p.category or '—' }}</span></td>
       <td class="mono">{{ p.mpn or '—' }}</td>
       <td>{{ p.value or '—' }}</td>

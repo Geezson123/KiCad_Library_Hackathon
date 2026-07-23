@@ -1,9 +1,9 @@
 {
     "$schema": "https://go.kicad.org/pcm/schemas/v1",
-    "name": "HackLib Sync",
-    "description": "One-click sync of the shared HackLib KiCad library.",
-    "description_full": "Adds a toolbar button to the PCB editor that downloads the latest shared symbol/footprint/3D-model library bundle from your HackLib server and extracts it into your local KiCad library folder. Uses only the Python standard library and wx (both bundled with KiCad).",
-    "identifier": "com.github.geezson123.hacklib-sync",
+    "name": "LuGroupLib Sync",
+    "description": "One-click sync of the shared LuGroupLib KiCad library.",
+    "description_full": "Adds a toolbar button to the PCB editor that downloads the latest shared symbol/footprint/3D-model library bundle from your LuGroupLib server and extracts it into your local KiCad library folder. Uses only the Python standard library and wx (both bundled with KiCad).",
+    "identifier": "com.github.geezson123.lugrouplib-sync",
     "type": "plugin",
     "author": {
         "name": "Geezson123",

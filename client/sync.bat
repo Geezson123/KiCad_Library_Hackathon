@@ -1,5 +1,5 @@
 @echo off
-REM Double-click to sync the HackLib KiCad library from the server.
+REM Double-click to sync the LuGroupLib KiCad library from the server.
 REM Edit client_config.json first (copy client_config.example.json).
 setlocal
 cd /d "%~dp0"

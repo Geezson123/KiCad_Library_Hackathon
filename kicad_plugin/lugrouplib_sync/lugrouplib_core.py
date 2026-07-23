@@ -1,8 +1,8 @@
-"""Shared HackLib sync core — the single source of truth for download + extract.
+"""Shared LuGroupLib sync core — the single source of truth for download + extract.
 
 Standard library only, no KiCad/wx/CLI specifics, so it can be reused by both:
   * client/sync_client.py         (the double-click CLI sync)
-  * the KiCad plugin              (kicad_plugin/hacklib_sync/__init__.py)
+  * the KiCad plugin              (kicad_plugin/lugrouplib_sync/__init__.py)
 
 This file is CANONICAL here in client/. build_pcm_package.py copies it verbatim into
 the plugin so there is exactly one implementation to maintain.
@@ -34,14 +34,14 @@ def save_config(config_path, cfg):
         pass
 
 
-def resolve_local_dir(cfg, env_var="HACKLIB_DIR"):
+def resolve_local_dir(cfg, env_var="LUGROUPLIB_DIR"):
     """Where to sync into: explicit config, else the env var KiCad exports, else default."""
     if cfg.get("local_dir"):
         return os.path.expandvars(os.path.expanduser(cfg["local_dir"]))
     env = os.environ.get(env_var)
     if env:
         return os.path.expandvars(env)
-    return os.path.join(os.path.expanduser("~"), "Documents", "KiCad_HackLib")
+    return os.path.join(os.path.expanduser("~"), "Documents", "KiCad_LuGroupLib")
 
 
 # Subdirectories we fully mirror: files here that are no longer on the server are

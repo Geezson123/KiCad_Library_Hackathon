@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}{{ lib.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{{ lib.name }}
+    {% if lib.kind == 'common' %}
+      <span class="chip common">common</span>
+    {% else %}
+      <span class="chip group">sub-group</span>
+    {% endif %}
+  </h1>
+  <div class="head-actions">
+    <a class="btn" href="{{ url_for('libraries') }}">← Libraries</a>
+    {% if can_add %}<a class="btn primary" href="{{ url_for('upload') }}">+ Upload part</a>{% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <dl class="detail">
+    <dt>Description</dt><dd>{{ lib.description or '—' }}</dd>
+    <dt>Owner</dt><dd>{{ owner.name if owner else '—' }}</dd>
+    <dt>Parts</dt><dd>{{ lib.part_count }}</dd>
+    <dt>In KiCad</dt>
+    <dd class="mono">{{ lib_nickname }}:{{ lib.name }}/&lt;part&gt;</dd>
+    <dt>Who can add</dt>
+    <dd>{% if lib.kind == 'common' %}Anyone signed in{% else %}The owner and members{% endif %}</dd>
+    <dt>Who can edit a part</dt>
+    <dd>{% if lib.kind == 'common' %}Its uploader, anyone they invite, and master
+        librarians{% else %}The owner, members, and master librarians{% endif %}</dd>
+  </dl>
+</div>
+
+{% if lib.kind == 'group' %}
+<h2>Members</h2>
+<div class="card">
+  {% if members %}
+    <ul class="members">
+      {% for m in members %}
+      <li>
+        {{ m.name }}
+        {% if can_admin %}
+        <form class="inline" method="post" action="{{ url_for('manage_library', library_id=lib.id) }}">
+          {{ csrf_input() }}
+          <input type="hidden" name="action" value="remove_member">
+          <input type="hidden" name="user_id" value="{{ m.id }}">
+          <button class="linkish danger" type="submit">remove</button>
+        </form>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="hint">No members yet — only the owner and master librarians can add parts.</p>
+  {% endif %}
+
+  {% if can_admin %}
+  <form method="post" action="{{ url_for('manage_library', library_id=lib.id) }}">
+    {{ csrf_input() }}
+    <input type="hidden" name="action" value="add_member">
+    <div class="grid2">
+      <label>Add member
+        <select name="user_id" required>
+          <option value="">Choose someone…</option>
+          {% for u in all_users %}<option value="{{ u.id }}">{{ u.name }}</option>{% endfor %}
+        </select>
+      </label>
+    </div>
+    <div class="actions"><button class="btn" type="submit">Add member</button></div>
+  </form>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if can_admin %}
+<h2>Manage</h2>
+<div class="card">
+  {% if lib.part_count == 0 %}
+    <form method="post" action="{{ url_for('manage_library', library_id=lib.id) }}">
+      {{ csrf_input() }}
+      <input type="hidden" name="action" value="rename">
+      <div class="grid2">
+        <label>Rename <input name="name" value="{{ lib.name }}"
+                             pattern="[A-Za-z0-9_.+\-]{1,48}" required></label>
+      </div>
+      <div class="actions">
+        <button class="btn" type="submit">Rename</button>
+      </div>
+    </form>
+    <form method="post" action="{{ url_for('manage_library', library_id=lib.id) }}"
+          onsubmit="return confirm('Delete {{ lib.name }}?');">
+      {{ csrf_input() }}
+      <input type="hidden" name="action" value="delete">
+      <div class="actions"><button class="btn danger" type="submit">Delete library</button></div>
+    </form>
+    <p class="hint">This library is still empty, so the name can be changed freely.</p>
+  {% else %}
+    <p class="hint">
+      <strong>The name is now fixed.</strong> {{ lib.part_count }} part(s) live here, and
+      the library name is part of the link from every schematic symbol placed from them —
+      renaming would orphan those symbols. Deleting is blocked for the same reason.
+    </p>
+  {% endif %}
+</div>
+{% endif %}
+
+<h2>Parts</h2>
+{% if parts %}
+<table class="parts">
+  <thead>
+    <tr><th>#</th><th>Name</th><th>KiCad key</th><th>Category</th><th>MPN</th><th>Added by</th></tr>
+  </thead>
+  <tbody>
+    {% for p in parts %}
+    <tr onclick="location.href='{{ url_for('part_detail', part_id=p.id) }}'"
+        class="{{ 'deprecated' if p.deprecated else '' }}">
+      <td>{{ p.id }}</td>
+      <td>{{ p.name }}{% if p.deprecated %} <span class="chip">deprecated</span>{% endif %}</td>
+      <td class="mono small">{{ p.slug }}</td>
+      <td><span class="chip">{{ p.category or '—' }}</span></td>
+      <td class="mono">{{ p.mpn or '—' }}</td>
+      <td class="small">{{ p.created_by }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty"><p>No parts in this library yet.</p></div>
+{% endif %}
+{% endblock %}

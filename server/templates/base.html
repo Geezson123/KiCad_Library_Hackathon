@@ -3,20 +3,44 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}HackLib{% endblock %} · KiCad Library</title>
+  <title>{% block title %}LuGroupLib{% endblock %} · KiCad Library</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="{{ url_for('browse') }}">⚡ HackLib</a>
+    <a class="brand" href="{{ url_for('browse') }}">⚡ LuGroupLib</a>
     <nav>
       <a href="{{ url_for('browse') }}">Browse</a>
-      <a href="{{ url_for('upload') }}">Upload part</a>
+      <a href="{{ url_for('libraries') }}">Libraries</a>
+      {% if current_user %}
+        <a href="{{ url_for('upload') }}">Upload part</a>
+        <a href="{{ url_for('tokens') }}">Sync tokens</a>
+      {% endif %}
       <a class="btn-sync" href="{{ url_for('api_bundle') }}">⤓ Download sync bundle</a>
+      {% if current_user %}
+        <span class="user">
+          {{ current_user.name }}{% if current_user.is_librarian %}
+            <span class="chip librarian" title="Master librarian — can edit every library">★</span>
+          {% endif %}
+        </span>
+        <form class="inline" method="post" action="{{ url_for('logout') }}">
+          {{ csrf_input() }}
+          <button class="linkish" type="submit">Sign out</button>
+        </form>
+      {% else %}
+        <a href="{{ url_for('login') }}">Sign in</a>
+      {% endif %}
     </nav>
   </header>
 
   <main>
+    {% if dev_login %}
+      <div class="flash flash-error">
+        <strong>Developer sign-in is enabled.</strong>
+        Anyone can sign in as anyone with no credentials. Unset
+        <code>LUGROUPLIB_DEV_LOGIN</code> before exposing this server.
+      </div>
+    {% endif %}
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         <div class="flashes">

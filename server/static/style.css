@@ -94,3 +94,29 @@ dl.detail dd { margin: 0; word-break: break-word; }
 .flash { padding: 11px 14px; border-radius: 8px; margin-bottom: 8px; }
 .flash-success { background: rgba(46,204,155,.15); border: 1px solid var(--accent-2); }
 .flash-error { background: rgba(255,107,107,.15); border: 1px solid var(--danger); }
+
+/* --- identity / access control (Stage 1 + 2) --- */
+.user { color: var(--muted); font-size: 14px; display: inline-flex; align-items: center; gap: 6px; }
+form.inline { display: inline; }
+.linkish { background: none; border: 0; color: var(--muted); cursor: pointer; font: inherit; padding: 0; text-decoration: underline; }
+.linkish:hover { color: var(--text); }
+.linkish.danger { color: var(--danger); }
+
+.chip.librarian { border-color: var(--accent); color: var(--accent); }
+.chip.common { border-color: var(--accent-2); color: var(--accent-2); }
+.chip.group { border-color: var(--accent); color: var(--accent); }
+
+label.check { display: flex; align-items: flex-start; gap: 10px; margin: 10px 0; font-size: 13px; color: var(--muted); }
+label.check input { margin-top: 3px; }
+label.check span strong { color: var(--text); }
+
+ul.members { list-style: none; padding: 0; margin: 0 0 16px; }
+ul.members li { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+
+pre.token { background: var(--panel-2); border: 1px solid var(--accent); border-radius: 8px; padding: 14px; overflow-x: auto; user-select: all; }
+.token-new { border-color: var(--accent); margin-bottom: 18px; }
+.token-new pre.mono { background: var(--panel-2); border-radius: 8px; padding: 12px; overflow-x: auto; }
+
+tr.deprecated td { opacity: .5; }
+.btn.small { padding: 4px 10px; font-size: 12px; }
+h2 { margin: 28px 0 12px; font-size: 18px; }

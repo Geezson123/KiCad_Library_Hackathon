@@ -1,5 +1,5 @@
 {
   "server_url": "http://YOUR_VPS_IP:8000",
-  "local_dir": "%USERPROFILE%\\Documents\\KiCad_LuGroupLib",
+  "local_dir": "",
   "token": "PASTE_YOUR_SYNC_TOKEN_FROM_/tokens"
 }

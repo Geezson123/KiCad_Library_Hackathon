@@ -6,16 +6,21 @@ venv/
 env/
 
 # Runtime-generated library content (rebuilt from examples/ on first server run)
-library/hacklib.sqlite
-library/hacklib.sqlite-*
-library/symbols/HackLib.kicad_sym
-library/footprints/HackLib.pretty/*.kicad_mod
+library/lugrouplib.sqlite
+library/lugrouplib.sqlite-*
+library/symbols/LuGroupLib.kicad_sym
+library/footprints/LuGroupLib.pretty/*.kicad_mod
 library/3dmodels/*
 !library/3dmodels/.gitkeep
 
+# Identity / access-control database. Deliberately NOT under library/, so it is never
+# picked up by the sync bundle: it holds emails, Slack ids and API token hashes.
+server/app.sqlite
+server/app.sqlite-*
+
 # Client machine-specific config
 client/client_config.json
-kicad_plugin/hacklib_sync/hacklib_config.json
+kicad_plugin/lugrouplib_sync/lugrouplib_config.json
 
 # OS / editor
 .DS_Store

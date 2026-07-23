@@ -2,21 +2,46 @@
 {% block title %}{{ part.mpn or part.value or 'Part' }}{% endblock %}
 {% block content %}
 <div class="page-head">
-  <h1>{{ part.mpn or part.value or ('Part #' ~ part.id) }}</h1>
+  <h1>{{ part.mpn or part.value or ('Part #' ~ part.id) }}
+    {% if part.deprecated %}<span class="chip">deprecated</span>{% endif %}
+  </h1>
   <div class="head-actions">
     <a class="btn" href="{{ url_for('browse') }}">← Back</a>
-    <a class="btn" href="{{ url_for('edit_part', part_id=part.id) }}">Edit</a>
-    <form method="post" action="{{ url_for('delete_part', part_id=part.id) }}"
-          onsubmit="return confirm('Delete {{ part.name }}? This removes it on the next sync (including from synced computers).');">
-      <button class="btn danger" type="submit">Delete</button>
-    </form>
+    {% if can_edit %}
+      <a class="btn" href="{{ url_for('edit_part', part_id=part.id) }}">Edit</a>
+      <form method="post" action="{{ url_for('delete_part', part_id=part.id) }}"
+            onsubmit="return confirm('Delete {{ part.name }}? Any schematic that already placed this part will lose its library link. Deprecating instead keeps existing designs working.');">
+        {{ csrf_input() }}
+        <button class="btn danger" type="submit">Delete</button>
+      </form>
+    {% endif %}
   </div>
 </div>
+
+{% if not can_edit and current_user %}
+  <div class="flash flash-error">
+    You can't edit this part.
+    {% if lib and lib.kind == 'common' %}
+      It lives in the common library <strong>{{ lib.name }}</strong>, where parts stay
+      editable by their uploader ({{ part.created_by }}) and anyone they invite.
+    {% else %}
+      It belongs to the sub-group library <strong>{{ lib.name if lib else '—' }}</strong>;
+      ask its owner to add you as a member.
+    {% endif %}
+  </div>
+{% endif %}
 
 <div class="card">
   <dl class="detail">
     <dt>ID</dt><dd>{{ part.id }}</dd>
-    <dt>KiCad name</dt><dd class="mono">{{ part.name }} <span class="hint">(shown in the Symbol Chooser)</span></dd>
+    <dt>Library</dt>
+    <dd>{% if lib %}<a href="{{ url_for('library_detail', library_id=lib.id) }}">{{ lib.name }}</a>
+        <span class="chip {{ lib.kind }}">{{ 'common' if lib.kind == 'common' else 'sub-group' }}</span>
+        {% else %}—{% endif %}</dd>
+    <dt>Name</dt><dd>{{ part.name }} <span class="hint">(display name — safe to change)</span></dd>
+    <dt>KiCad LIB_ID</dt>
+    <dd class="mono">{{ lib_nickname }}:{% if lib %}{{ lib.name }}/{% endif %}{{ part.slug }}
+      <span class="hint">(permanent — this is what schematics store)</span></dd>
     <dt>Category</dt><dd><span class="chip">{{ part.category or '—' }}</span></dd>
     <dt>MPN</dt><dd class="mono">{{ part.mpn or '—' }}</dd>
     <dt>Manufacturer</dt><dd>{{ part.manufacturer or '—' }}</dd>
@@ -32,6 +57,51 @@
   </dl>
 </div>
 
-<p class="hint">To see this part in KiCad, run <code>sync.bat</code> on your machine and refresh the
-   HackLib database library in the Symbol Chooser.</p>
+{% if can_edit %}
+<h2>Who can edit this part</h2>
+<div class="card">
+  <p class="hint">
+    {{ part.created_by }} uploaded it.
+    {% if lib and lib.kind == 'group' %}
+      Everyone in the <strong>{{ lib.name }}</strong> sub-group can already edit it;
+      invites below add people from outside the group.
+    {% else %}
+      Invite anyone else who should be able to edit it.
+    {% endif %}
+  </p>
+
+  {% if editors %}
+    <ul class="members">
+      {% for e in editors %}
+      <li>
+        {{ e.name }}
+        <form class="inline" method="post" action="{{ url_for('part_editors', part_id=part.id) }}">
+          {{ csrf_input() }}
+          <input type="hidden" name="action" value="remove">
+          <input type="hidden" name="user_id" value="{{ e.id }}">
+          <button class="linkish danger" type="submit">remove</button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  <form method="post" action="{{ url_for('part_editors', part_id=part.id) }}">
+    {{ csrf_input() }}
+    <div class="grid2">
+      <label>Invite an editor
+        <select name="user_id" required>
+          <option value="">Choose someone…</option>
+          {% for u in all_users %}<option value="{{ u.id }}">{{ u.name }}</option>{% endfor %}
+        </select>
+      </label>
+    </div>
+    <div class="actions"><button class="btn" type="submit">Invite</button></div>
+  </form>
+</div>
+{% endif %}
+
+<p class="hint">To see this part in KiCad, sync your machine and refresh the
+   {{ lib_nickname }} database library in the Symbol Chooser. It appears under the
+   <strong>{{ lib.name if lib else '—' }}</strong> sub-library.</p>
 {% endblock %}

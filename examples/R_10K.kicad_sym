@@ -1,4 +1,4 @@
-(kicad_symbol_lib (version 20211014) (generator hacklib)
+(kicad_symbol_lib (version 20211014) (generator lugrouplib)
   (symbol "R_10K" (pin_numbers hide) (pin_names (offset 0)) (in_bom yes) (on_board yes)
     (property "Reference" "R" (at 2.032 0 90)
       (effects (font (size 1.27 1.27))))

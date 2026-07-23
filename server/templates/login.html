@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Sign in{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Sign in</h1></div>
+
+<div class="card">
+  {% if slack_enabled %}
+    <p>Sign in with your lab Slack account to upload and edit parts.</p>
+    <p class="actions"><a class="btn primary" href="{{ url_for('login') }}">Sign in with Slack</a></p>
+  {% else %}
+    <p><strong>Slack sign-in is not configured yet.</strong></p>
+    <p class="hint">
+      Create a Slack app at <code>api.slack.com/apps</code>, enable
+      <em>Sign in with Slack</em>, add
+      <code>{{ url_for('slack_callback', _external=True) }}</code> as a redirect URL,
+      then set <code>LUGROUPLIB_SLACK_CLIENT_ID</code>,
+      <code>LUGROUPLIB_SLACK_CLIENT_SECRET</code> and
+      <code>LUGROUPLIB_SLACK_TEAM_ID</code> on the server.
+    </p>
+  {% endif %}
+
+  {% if dev_login %}
+    <hr>
+    <h3>Developer sign-in</h3>
+    <p class="hint">
+      <strong>No password required.</strong> This exists so the app runs before Slack is
+      set up, and is only available because <code>LUGROUPLIB_DEV_LOGIN=1</code> is set.
+      Never enable it on a reachable server.
+    </p>
+    <form method="post" action="{{ url_for('dev_login') }}">
+      {{ csrf_input() }}
+      <div class="grid2">
+        <label>Name <input name="name" placeholder="Dev User" required></label>
+        <label class="check">
+          <input type="checkbox" name="librarian" value="1"> Sign in as master librarian
+        </label>
+      </div>
+      <div class="actions">
+        <button class="btn primary" type="submit">Dev sign in</button>
+      </div>
+    </form>
+  {% endif %}
+</div>
+
+<p class="hint">Browsing the library is open to everyone — you only need to sign in to
+   upload, edit, or manage sync tokens.</p>
+{% endblock %}

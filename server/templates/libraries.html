@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Libraries{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Libraries <span class="count">{{ libraries|length }}</span></h1>
+  {% if current_user %}
+    <a class="btn primary" href="{{ url_for('new_library') }}">+ New library</a>
+  {% endif %}
+</div>
+
+<p class="hint">Each library appears in KiCad as its own sub-library under
+   <code>{{ lib_nickname }}</code>, so parts stay
+   grouped in the Symbol Chooser. Everyone can see every library — permissions only
+   govern who can add and edit parts.</p>
+
+<table class="parts">
+  <thead>
+    <tr><th>Library</th><th>Kind</th><th>Parts</th><th>Description</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for lib in libraries %}
+    <tr onclick="location.href='{{ url_for('library_detail', library_id=lib.id) }}'">
+      <td class="mono">{{ lib.name }}</td>
+      <td>
+        {% if lib.kind == 'common' %}
+          <span class="chip common" title="Anyone may add parts; each part stays editable by its uploader">common</span>
+        {% else %}
+          <span class="chip group" title="Only members may add or edit parts">sub-group</span>
+        {% endif %}
+      </td>
+      <td class="center">{{ lib.part_count }}</td>
+      <td class="small">{{ lib.description or '—' }}</td>
+      <td class="center small">{{ '✓ can add' if lib.can_add else '' }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

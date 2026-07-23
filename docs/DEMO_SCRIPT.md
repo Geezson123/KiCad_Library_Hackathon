@@ -10,7 +10,7 @@ in KiCad.**
       **64-bit SQLite ODBC driver installed**, Python installed, `client_config.json`
       pointing at the VPS, env vars + symbol/footprint/database libraries registered.
 - [ ] Run `sync.bat` once; open KiCad and confirm the seeded **R_10K** resistor shows in
-      the Symbol Chooser under `HackLib_DB → Parts` and places with its footprint.
+      the Symbol Chooser under `LuGroupLib_DB → Parts` and places with its footprint.
 - [ ] Have a fresh part ready to upload (files + metadata) so you're not authoring during
       the demo. A second resistor value works great; `examples/` files can be reused.
 
@@ -20,11 +20,11 @@ in KiCad.**
    parts. Search to show filtering.
 2. **Upload a part.** Click **Upload part**, fill in Category/MPN/Value/etc., attach the
    `.kicad_sym`, `.kicad_mod`, and `.step/.wrl` files, submit. The part detail page shows
-   its `HackLib:` symbol/footprint references.
+   its `LuGroupLib:` symbol/footprint references.
 3. **Sync on the laptop.** Switch to the Windows laptop, double-click **`sync.bat`**. It
    reports the files it pulled.
 4. **Show it in KiCad.** In the Symbol Chooser, click **Refresh** (or it's already open) →
-   the new part appears under `HackLib_DB → Parts` with its fields. Place it on the
+   the new part appears under `LuGroupLib_DB → Parts` with its fields. Place it on the
    schematic; point out that the footprint (and 3D model) came along automatically.
 
 ## One-liner for the audience

@@ -1,12 +1,12 @@
 """Manage the on-disk KiCad artifacts that back each database row.
 
 KiCad database libraries only store a *reference* to a symbol/footprint (e.g.
-``HackLib:R_10K``). The real geometry lives in ``HackLib.kicad_sym`` and the
-``HackLib.pretty`` folder. This module keeps those in sync with the DB:
+``LuGroupLib:R_10K``). The real geometry lives in ``LuGroupLib.kicad_sym`` and the
+``LuGroupLib.pretty`` folder. This module keeps those in sync with the DB:
 
 * merge an uploaded ``.kicad_sym`` into the single aggregated symbol library
 * copy an uploaded ``.kicad_mod`` into the footprint library (verbatim)
-* copy an uploaded 3D model and point the footprint at it via ``${HACKLIB_3D}``
+* copy an uploaded 3D model and point the footprint at it via ``${LUGROUPLIB_3D}``
 * build the download bundle (a zip of the whole ``library/`` directory)
 
 Footprints are copied byte-for-byte (only the 3D model path is rewritten). We do NOT
@@ -53,13 +53,13 @@ def _unique(name, existing):
 def _load_symlib():
     if os.path.exists(config.SYMBOLS_LIB):
         return SymbolLib.from_file(config.SYMBOLS_LIB)
-    lib = SymbolLib(version=config.SYMLIB_VERSION, generator="hacklib")
+    lib = SymbolLib(version=config.SYMLIB_VERSION, generator="lugrouplib")
     lib.filePath = config.SYMBOLS_LIB
     return lib
 
 
 def add_symbol_from_file(uploaded_path, desired_name=None):
-    """Merge the first symbol from ``uploaded_path`` into HackLib.kicad_sym.
+    """Merge the first symbol from ``uploaded_path`` into LuGroupLib.kicad_sym.
 
     Returns the final (possibly de-duplicated) symbol name.
     """
@@ -89,7 +89,7 @@ def add_symbol_from_file(uploaded_path, desired_name=None):
 
 
 def remove_symbol(name):
-    """Remove a symbol (by entryName) from the aggregated HackLib.kicad_sym."""
+    """Remove a symbol (by entryName) from the aggregated LuGroupLib.kicad_sym."""
     if not name or not os.path.exists(config.SYMBOLS_LIB):
         return
     lib = SymbolLib.from_file(config.SYMBOLS_LIB)
@@ -98,7 +98,7 @@ def remove_symbol(name):
 
 
 def ref_name(ref):
-    """Return the bare item name from a 'HackLib:Name' reference (or '' if empty)."""
+    """Return the bare item name from a 'LuGroupLib:Name' reference (or '' if empty)."""
     if not ref:
         return ""
     return ref.split(":", 1)[1] if ":" in ref else ref
@@ -138,12 +138,12 @@ _MODEL_RE = re.compile(r'(\(model\s+)("[^"]*"|[^\s()]+)')
 
 
 def _rewrite_model_paths(text, model_basename):
-    """Point every 3D model reference at ``${HACKLIB_3D}/<basename>`` so it resolves
+    """Point every 3D model reference at ``${LUGROUPLIB_3D}/<basename>`` so it resolves
     on any machine after a sync, regardless of the vendor's original path."""
     def repl(match):
         raw = match.group(2).strip('"')
         base = model_basename or os.path.basename(raw.replace("\\", "/"))
-        return '%s"${HACKLIB_3D}/%s"' % (match.group(1), base)
+        return '%s"${LUGROUPLIB_3D}/%s"' % (match.group(1), base)
     return _MODEL_RE.sub(repl, text)
 
 
@@ -155,7 +155,7 @@ def _apply_model(text, model_basename):
         idx = text.rstrip().rfind(")")
         if idx != -1:
             block = (
-                '  (model "${HACKLIB_3D}/%s"\n'
+                '  (model "${LUGROUPLIB_3D}/%s"\n'
                 "    (offset (xyz 0 0 0))\n"
                 "    (scale (xyz 1 1 1))\n"
                 "    (rotate (xyz 0 0 0))\n  )\n" % model_basename
@@ -173,11 +173,11 @@ def _read_text(path):
 
 
 def add_footprint_from_file(uploaded_path, desired_name=None, model_basename=None):
-    """Copy an uploaded .kicad_mod into HackLib.pretty verbatim, rewriting only the 3D
+    """Copy an uploaded .kicad_mod into LuGroupLib.pretty verbatim, rewriting only the 3D
     model path. Works for both modern ``(footprint …)`` and legacy ``(module …)`` files.
 
     If ``model_basename`` is given it becomes the model path; otherwise any existing model
-    reference is rewritten to ``${HACKLIB_3D}/<its basename>``. Returns the footprint name
+    reference is rewritten to ``${LUGROUPLIB_3D}/<its basename>``. Returns the footprint name
     (which is the file name KiCad shows in the library).
     """
     config.ensure_dirs()
@@ -200,7 +200,7 @@ def add_footprint_from_file(uploaded_path, desired_name=None, model_basename=Non
 
 
 def remove_footprint(name):
-    """Delete a footprint file from HackLib.pretty."""
+    """Delete a footprint file from LuGroupLib.pretty."""
     if not name:
         return
     path = os.path.join(config.FOOTPRINTS_DIR, name + ".kicad_mod")
@@ -209,7 +209,7 @@ def remove_footprint(name):
 
 
 def relink_model(footprint_name, model_basename):
-    """Repoint an existing footprint's 3D model at ``${HACKLIB_3D}/<model_basename>``.
+    """Repoint an existing footprint's 3D model at ``${LUGROUPLIB_3D}/<model_basename>``.
 
     Used on edit when a new 3D model is uploaded but the footprint is unchanged.
     """
@@ -230,9 +230,9 @@ def build_bundle_zip():
     """Zip the entire library/ directory. Returns the path to the created .zip.
 
     Entries are stored relative to LIBRARY_DIR so extracting the zip into the
-    client's local folder drops HackLib.kicad_dbl, hacklib.sqlite, symbols/, etc.
+    client's local folder drops LuGroupLib.kicad_dbl, lugrouplib.sqlite, symbols/, etc.
     directly in place.
     """
-    tmp_base = os.path.join(tempfile.gettempdir(), "hacklib_bundle")
+    tmp_base = os.path.join(tempfile.gettempdir(), "lugrouplib_bundle")
     zip_path = shutil.make_archive(tmp_base, "zip", root_dir=config.LIBRARY_DIR)
     return zip_path

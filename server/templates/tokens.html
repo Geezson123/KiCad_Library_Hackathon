@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Sync tokens{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Sync tokens</h1></div>
+
+{% if fresh %}
+<div class="card token-new">
+  <h3>Your new token</h3>
+  <p class="hint">Copy it now — it is stored hashed, so this is the only time it can be shown.</p>
+  <pre class="token mono">{{ fresh }}</pre>
+  <p class="hint">Put it in <code>client_config.json</code> next to <code>sync.bat</code>,
+     or in <code>lugrouplib_config.json</code> next to the KiCad plugin:</p>
+  <pre class="mono">{
+  "server_url": "{{ url_for('browse', _external=True).rstrip('/') }}",
+  "token": "{{ fresh }}"
+}</pre>
+</div>
+{% endif %}
+
+<div class="card">
+  <p>The sync client and the KiCad plugin authenticate with a token instead of a browser
+     session. Create one per machine so you can revoke a single laptop without disturbing
+     the others.</p>
+  <form method="post" action="{{ url_for('tokens') }}">
+    {{ csrf_input() }}
+    <div class="grid2">
+      <label>Label <input name="label" placeholder="e.g. lab desktop, personal laptop"></label>
+    </div>
+    <div class="actions">
+      <button class="btn primary" type="submit">Create token</button>
+    </div>
+  </form>
+</div>
+
+{% if tokens %}
+<table class="parts">
+  <thead>
+    <tr><th>Label</th><th>Created</th><th>Last used</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for t in tokens %}
+    <tr>
+      <td>{{ t.label or '—' }}</td>
+      <td class="small">{{ t.created_at }}</td>
+      <td class="small">{{ t.last_used_at or 'never' }}</td>
+      <td class="center">
+        <form method="post" action="{{ url_for('tokens') }}"
+              onsubmit="return confirm('Revoke this token? That machine will stop syncing.');">
+          {{ csrf_input() }}
+          <input type="hidden" name="revoke" value="{{ t.id }}">
+          <button class="btn danger small" type="submit">Revoke</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty"><p>No tokens yet.</p></div>
+{% endif %}
+{% endblock %}
