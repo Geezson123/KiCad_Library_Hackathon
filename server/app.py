@@ -796,6 +796,11 @@ if __name__ == "__main__":
     app.run(
         host="0.0.0.0",
         port=int(os.environ.get("PORT", "8000")),
-        debug=os.environ.get("LUGROUPLIB_DEBUG", "1") == "1",
+        # Off unless asked for. Flask's debug mode serves the Werkzeug interactive
+        # debugger, which executes arbitrary code from the browser -- fine on a laptop,
+        # a remote shell for anyone who can reach a server. Production runs under
+        # gunicorn and never reaches this line, but a "quick test" with `python app.py`
+        # on a reachable box would have, so the default is the safe one.
+        debug=os.environ.get("LUGROUPLIB_DEBUG", "0") == "1",
         use_reloader=False,
     )

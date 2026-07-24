@@ -29,17 +29,28 @@ After syncing it pops a small dialog reminding you how to reload libraries.
 
 ## Configure
 
-- **Easiest:** the first click asks for the server URL (`http://YOUR_VPS_IP:8000`) and
-  remembers it. The target folder comes automatically from the `LUGROUPLIB_DIR` environment
-  variable you set in KiCad (Preferences → Configure Paths), else `~/Documents/KiCad_LuGroupLib`.
-- **Pre-configure:** copy `lugrouplib_config.example.json` → `lugrouplib_config.json` next to the
-  plugin and set the values. Leave `local_dir` as `""` to use `LUGROUPLIB_DIR`.
+The plugin needs two things: the server URL and a **sync token**.
+
+- **Easiest:** the first click asks for both and remembers them. Create the token at
+  `<server>/tokens` after signing in — see
+  [the user guide](../docs/USER_GUIDE.md#sync-tokens). The target folder comes from the
+  `LUGROUPLIB_DIR` environment variable you set in KiCad (Preferences → Configure Paths),
+  else `~/Documents/KiCad_LuGroupLib`.
+- **Pre-configure:** copy `lugrouplib_config.example.json` → `lugrouplib_config.json` next
+  to the plugin and set the values. Leave `local_dir` as `""` to use `LUGROUPLIB_DIR`.
+- **Simplest of all:** run `client/install.py` once — it sets up the token, the folder,
+  and KiCad's library registration together.
+
+If the server rejects the token, the plugin clears it so the next click prompts again
+rather than failing identically forever.
 
 ## Use
 
-Click **LuGroupLib: Sync Library** → it downloads and extracts the bundle, then shows how
-many files it pulled and how to reload. Refresh the Symbol Chooser (or restart KiCad) to
-see new parts.
+Click **LuGroupLib: Sync Library**. It transfers only what changed and reports what moved
+— "2 new, 1 updated", or "Already up to date" when there's nothing to do.
+
+Then reload: **Symbol Chooser → Refresh** for symbols, or **restart KiCad** for new
+footprints and 3D models (those are cached and the refresh doesn't reload them).
 
 ## Layout / how it's built
 

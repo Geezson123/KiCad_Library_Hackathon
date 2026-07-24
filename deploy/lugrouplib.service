@@ -4,15 +4,33 @@ After=network.target
 
 [Service]
 Type=simple
-# Adjust User and paths to match your VPS.
 User=lugrouplib
 WorkingDirectory=/opt/lugrouplib/server
-Environment=PORT=8000
+
+# Secrets live here, not in this file: this unit is world-readable and tracked in git.
+# Create it from deploy/lugrouplib.env.example and chmod 600 it.
+EnvironmentFile=/etc/lugrouplib.env
+
 Environment=LUGROUPLIB_LIBRARY_DIR=/opt/lugrouplib/library
-# 1 worker keeps RAM tiny; SQLite + this app do not need more for a small group.
-ExecStart=/opt/lugrouplib/venv/bin/gunicorn -w 1 -b 0.0.0.0:8000 app:app
+Environment=LUGROUPLIB_APP_DB=/opt/lugrouplib/server/app.sqlite
+
+# Bound to loopback on purpose. Something in front terminates TLS -- `tailscale serve`
+# on the test box, Caddy or nginx in production -- so the app itself is never directly
+# reachable. To expose it directly (not recommended), change to 0.0.0.0:8000.
+#
+# One worker is deliberate: it keeps RAM around 40-60 MB, and SQLite is happiest with a
+# single writer. A lab-sized group will not outgrow it.
+ExecStart=/opt/lugrouplib/venv/bin/gunicorn -w 1 -b 127.0.0.1:8000 --timeout 120 app:app
+
 Restart=on-failure
 RestartSec=3
+
+# Hardening. The app only ever needs to write its own library and database.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/opt/lugrouplib/library /opt/lugrouplib/server
 
 [Install]
 WantedBy=multi-user.target

@@ -2,6 +2,9 @@
 
 Requires **KiCad 7 or newer** — database libraries do not exist before that.
 
+Once this is done, see the **[user guide](USER_GUIDE.md)** for how to actually use the
+library day to day.
+
 ## The short version
 
 1. Install the SQLite ODBC driver (below — **do this first**, it is the most common
