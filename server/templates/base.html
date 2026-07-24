@@ -12,6 +12,7 @@
     <nav>
       <a href="{{ url_for('browse') }}">Browse</a>
       <a href="{{ url_for('libraries') }}">Libraries</a>
+      <a href="{{ url_for('inventory') }}">Inventory</a>
       {% if current_user %}
         <a href="{{ url_for('upload') }}">Upload part</a>
         <a href="{{ url_for('tokens') }}">Sync tokens</a>

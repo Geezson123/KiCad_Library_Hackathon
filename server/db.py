@@ -20,6 +20,17 @@ CREATE TABLE IF NOT EXISTS libraries (
     created_at  TEXT    NOT NULL DEFAULT ''
 );
 
+-- Stock levels live in the KiCad-facing database (no personal data) so the
+-- per-library views can join them in and answer "do we have this?" right in the
+-- Symbol Chooser. Who moved the stock is audit data and lives in the app database.
+CREATE TABLE IF NOT EXISTS inventory (
+    part_id    INTEGER PRIMARY KEY,
+    quantity   INTEGER NOT NULL DEFAULT 0,
+    location   TEXT    NOT NULL DEFAULT '',
+    min_qty    INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT    NOT NULL DEFAULT ''
+);
+
 CREATE TABLE IF NOT EXISTS parts (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     name          TEXT    NOT NULL DEFAULT '',
@@ -218,6 +229,101 @@ def update_part(part_id, data):
 def delete_part(part_id):
     with get_conn() as conn:
         conn.execute("DELETE FROM parts WHERE id = ?", (part_id,))
+        conn.execute("DELETE FROM inventory WHERE part_id = ?", (part_id,))
+
+
+# ---------------------------------------------------------------------------
+# inventory
+# ---------------------------------------------------------------------------
+class StockError(ValueError):
+    """A stock movement was refused; the message is user-facing."""
+
+
+def get_inventory(part_id):
+    """Stock record for a part. Returns zeroed defaults if it has never been counted."""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM inventory WHERE part_id = ?", (part_id,)
+        ).fetchone()
+    if row:
+        return dict(row)
+    return {"part_id": part_id, "quantity": 0, "location": "", "min_qty": 0,
+            "updated_at": ""}
+
+
+def set_stock_settings(part_id, location, min_qty):
+    """Update where a part is kept and its reorder threshold (not the count itself)."""
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO inventory (part_id, quantity, location, min_qty, updated_at)"
+            " VALUES (?, 0, ?, ?, ?)"
+            " ON CONFLICT(part_id) DO UPDATE SET location = excluded.location,"
+            " min_qty = excluded.min_qty, updated_at = excluded.updated_at",
+            (part_id, (location or "").strip(), max(0, int(min_qty or 0)), now_iso()),
+        )
+
+
+def adjust_stock(part_id, delta):
+    """Apply a stock movement and return the new quantity.
+
+    Refuses to go negative: a count that drifts below zero is always a data-entry
+    mistake, and silently clamping it hides the error instead of surfacing it.
+    """
+    delta = int(delta)
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT quantity FROM inventory WHERE part_id = ?", (part_id,)
+        ).fetchone()
+        current = row["quantity"] if row else 0
+        new = current + delta
+        if new < 0:
+            raise StockError(
+                f"That would take stock to {new}. There are only {current} on hand."
+            )
+        conn.execute(
+            "INSERT INTO inventory (part_id, quantity, updated_at) VALUES (?, ?, ?)"
+            " ON CONFLICT(part_id) DO UPDATE SET quantity = excluded.quantity,"
+            " updated_at = excluded.updated_at",
+            (part_id, new, now_iso()),
+        )
+        return new
+
+
+def list_inventory(query="", library_id=None, low_only=False):
+    """Parts with their stock, for the inventory page."""
+    sql = (
+        "SELECT p.*, COALESCE(i.quantity, 0) AS quantity,"
+        " COALESCE(i.location, '') AS location,"
+        " COALESCE(i.min_qty, 0) AS min_qty, i.updated_at AS stock_updated_at"
+        " FROM parts p LEFT JOIN inventory i ON i.part_id = p.id WHERE 1=1"
+    )
+    args = []
+    if query:
+        like = f"%{query}%"
+        sql += (" AND (p.mpn LIKE ? OR p.name LIKE ? OR p.manufacturer LIKE ?"
+                " OR COALESCE(i.location, '') LIKE ?)")
+        args += [like] * 4
+    if library_id:
+        sql += " AND p.library_id = ?"
+        args.append(int(library_id))
+    if low_only:
+        # A threshold of 0 means "not tracked" -- don't report every uncounted part.
+        sql += " AND COALESCE(i.min_qty, 0) > 0 AND COALESCE(i.quantity, 0) <= i.min_qty"
+    sql += " ORDER BY p.name"
+    with get_conn() as conn:
+        return [dict(r) for r in conn.execute(sql, args).fetchall()]
+
+
+def find_part_by_mpn(mpn):
+    """Match a receipt line to a part by manufacturer part number, case-insensitively."""
+    text = (mpn or "").strip()
+    if not text:
+        return None
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM parts WHERE mpn <> '' AND mpn = ? COLLATE NOCASE", (text,)
+        ).fetchone()
+        return dict(row) if row else None
 
 
 def asset_in_use(column, value, exclude_id=None):
@@ -315,9 +421,14 @@ def rebuild_views(conn):
         view = _view_name(dict(row))
         wanted.add(view)
         conn.execute(f'DROP VIEW IF EXISTS "{view}"')
+        # LEFT JOIN, not INNER: a part with no inventory row has never been counted,
+        # which must read as quantity 0 rather than vanishing from KiCad entirely.
         conn.execute(
-            f'CREATE VIEW "{view}" AS SELECT * FROM parts'
-            f" WHERE library_id = {int(row['id'])} AND deprecated = 0"
+            f'CREATE VIEW "{view}" AS SELECT p.*,'
+            " COALESCE(i.quantity, 0) AS quantity,"
+            " COALESCE(i.location, '') AS location"
+            " FROM parts p LEFT JOIN inventory i ON i.part_id = p.id"
+            f" WHERE p.library_id = {int(row['id'])} AND p.deprecated = 0"
         )
     for stale in existing - wanted:
         conn.execute(f'DROP VIEW IF EXISTS "{stale}"')

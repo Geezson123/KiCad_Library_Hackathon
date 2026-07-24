@@ -34,6 +34,15 @@ FIELDS = [
      "visible_on_add": False, "visible_in_chooser": True, "show_name": True},
     {"column": "datasheet", "name": "Datasheet",
      "visible_on_add": False, "visible_in_chooser": False},
+    # Stock, joined in by the per-library view. Visible in the chooser so "do we
+    # already have this?" is answerable while picking a part, which is most of the
+    # value of tracking inventory at all. It does mean any stock movement dirties
+    # the database file and re-sends it on the next sync -- that file is small next
+    # to the 3D models, so the trade is worth it.
+    {"column": "quantity", "name": "In Stock",
+     "visible_on_add": False, "visible_in_chooser": True, "show_name": True},
+    {"column": "location", "name": "Location",
+     "visible_on_add": False, "visible_in_chooser": True, "show_name": True},
 ]
 
 PROPERTIES = {"description": "description", "keywords": "keywords"}

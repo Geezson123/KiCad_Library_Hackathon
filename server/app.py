@@ -217,6 +217,8 @@ def part_detail(part_id):
         can_edit=auth.can_edit_part(user, part, lib),
         editors=[e for e in editors if e],
         all_users=auth.list_users() if user else [],
+        stock=db.get_inventory(part_id),
+        stock_history=auth.stock_history(part_id, limit=10) if user else [],
     )
 
 
@@ -318,6 +320,135 @@ def part_editors(part_id):
         auth.add_part_editor(part_id, int(request.form["user_id"]))
         flash("Editor invited — they can now edit this part.", "success")
     return redirect(url_for("part_detail", part_id=part_id))
+
+
+# ---------------------------------------------------------------------------
+# inventory
+# ---------------------------------------------------------------------------
+# Any signed-in user may move stock. Taking parts off a shelf is something every lab
+# member does, and a system that makes logging it a privilege just means it stops
+# getting logged. Every move records who made it (see auth.stock_moves).
+@app.route("/inventory")
+def inventory():
+    q = request.args.get("q", "").strip()
+    library_id = request.args.get("library", "").strip()
+    low_only = request.args.get("low") == "1"
+    rows = db.list_inventory(q, library_id or None, low_only)
+    libraries = db.list_libraries()
+    return render_template(
+        "inventory.html", rows=rows, q=q, library_id=library_id, low_only=low_only,
+        libraries=libraries, library_names={l["id"]: l["name"] for l in libraries},
+        low_count=len(db.list_inventory(low_only=True)),
+        ai_enabled=ai.configured(),
+    )
+
+
+@app.route("/inventory/<int:part_id>/adjust", methods=["POST"])
+@auth.login_required
+def adjust_stock(part_id):
+    part = db.get_part(part_id)
+    if not part:
+        abort(404)
+    user = auth.current_user()
+    try:
+        delta = int(request.form.get("delta", "0"))
+    except ValueError:
+        flash("Enter a whole number.", "error")
+        return redirect(request.referrer or url_for("inventory"))
+    if delta == 0:
+        flash("Nothing to change.", "error")
+        return redirect(request.referrer or url_for("inventory"))
+
+    try:
+        resulting = db.adjust_stock(part_id, delta)
+    except db.StockError as exc:
+        flash(str(exc), "error")
+        return redirect(request.referrer or url_for("inventory"))
+
+    auth.log_stock_move(part_id, delta, resulting,
+                        request.form.get("reason", "manual").strip() or "manual",
+                        "", user["id"])
+    flash(f"{part['name']}: {'+' if delta > 0 else ''}{delta} → {resulting} in stock.",
+          "success")
+    return redirect(request.referrer or url_for("inventory"))
+
+
+@app.route("/inventory/<int:part_id>/settings", methods=["POST"])
+@auth.login_required
+def stock_settings(part_id):
+    if not db.get_part(part_id):
+        abort(404)
+    db.set_stock_settings(part_id, request.form.get("location", ""),
+                          request.form.get("min_qty", "0"))
+    flash("Storage location and reorder level saved.", "success")
+    return redirect(request.referrer or url_for("inventory"))
+
+
+@app.route("/inventory/receipt", methods=["GET", "POST"])
+@auth.login_required
+def receipt():
+    """Read a Mouser order and show what it *would* change. Applies nothing."""
+    if request.method == "GET":
+        return render_template("receipt.html", ai_enabled=ai.configured())
+
+    upload = request.files.get("pdf")
+    pdf_bytes = upload.read() if upload and upload.filename else None
+    try:
+        parsed = ai.read_receipt(pdf_bytes=pdf_bytes, text=request.form.get("text", ""))
+    except ai.ReceiptError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("receipt"))
+
+    # Match each line to a part now so the reviewer sees exactly what will happen.
+    lines = []
+    for item in parsed["items"]:
+        match = db.find_part_by_mpn(item["mpn"])
+        lines.append({
+            **item,
+            "part": match,
+            "current": db.get_inventory(match["id"])["quantity"] if match else None,
+        })
+    if not lines:
+        flash("No order lines were found in that document.", "error")
+        return redirect(url_for("receipt"))
+
+    return render_template("receipt_review.html", lines=lines,
+                           order_number=parsed["order_number"], notes=parsed["notes"],
+                           matched=sum(1 for l in lines if l["part"]))
+
+
+@app.route("/inventory/receipt/apply", methods=["POST"])
+@auth.login_required
+def receipt_apply():
+    """Apply the lines the reviewer ticked. This is the only step that moves stock."""
+    user = auth.current_user()
+    reference = request.form.get("order_number", "").strip()
+    applied, failed = 0, []
+
+    for part_id in request.form.getlist("apply"):
+        try:
+            pid = int(part_id)
+            qty = int(request.form.get(f"qty_{part_id}", "0"))
+        except ValueError:
+            continue
+        if qty <= 0 or not db.get_part(pid):
+            continue
+        try:
+            resulting = db.adjust_stock(pid, qty)
+        except db.StockError as exc:
+            failed.append(str(exc))
+            continue
+        auth.log_stock_move(pid, qty, resulting, "receipt", reference, user["id"])
+        applied += 1
+
+    if applied:
+        flash(f"Stocked {applied} line(s)"
+              + (f" from order {reference}." if reference else "."), "success")
+    if failed:
+        flash("Some lines were skipped: " + "; ".join(failed), "error")
+    if not applied and not failed:
+        flash("No lines were selected.", "error")
+    return redirect(url_for("inventory"))
 
 
 @app.route("/upload/from-mouser", methods=["GET", "POST"])

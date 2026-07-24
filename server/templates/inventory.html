@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Inventory{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Inventory <span class="count">{{ rows|length }}</span></h1>
+  {% if current_user %}
+    <a class="btn primary" href="{{ url_for('receipt') }}">⤒ Stock from a Mouser order</a>
+  {% endif %}
+</div>
+
+{% if low_count and not low_only %}
+  <div class="flash flash-error">
+    <strong>{{ low_count }} part(s) at or below their reorder level.</strong>
+    <a href="{{ url_for('inventory', low='1') }}">Show only those</a>
+  </div>
+{% endif %}
+
+<form class="filters" method="get" action="{{ url_for('inventory') }}">
+  <input type="search" name="q" value="{{ q }}" placeholder="Search MPN, name, manufacturer, location…">
+  <select name="library" onchange="this.form.submit()">
+    <option value="">All libraries</option>
+    {% for l in libraries %}
+      <option value="{{ l.id }}" {{ 'selected' if l.id|string == library_id else '' }}>{{ l.name }}</option>
+    {% endfor %}
+  </select>
+  <label class="check inline-check">
+    <input type="checkbox" name="low" value="1" {{ 'checked' if low_only }}
+           onchange="this.form.submit()"> Low stock only
+  </label>
+  <button type="submit">Search</button>
+  {% if q or library_id or low_only %}<a class="clear" href="{{ url_for('inventory') }}">Clear</a>{% endif %}
+</form>
+
+{% if rows %}
+<table class="parts">
+  <thead>
+    <tr>
+      <th>Part</th><th>Library</th><th>MPN</th><th class="center">In stock</th>
+      <th>Location</th><th class="center">Reorder at</th>
+      {% if current_user %}<th>Adjust</th>{% endif %}
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in rows %}
+    {% set low = r.min_qty > 0 and r.quantity <= r.min_qty %}
+    <tr class="{{ 'low-stock' if low else '' }}">
+      <td><a href="{{ url_for('part_detail', part_id=r.id) }}">{{ r.name }}</a></td>
+      <td class="mono small">{{ library_names.get(r.library_id, '—') }}</td>
+      <td class="mono small">{{ r.mpn or '—' }}</td>
+      <td class="center"><strong>{{ r.quantity }}</strong>{% if low %} <span class="chip low">low</span>{% endif %}</td>
+      <td class="small">{{ r.location or '—' }}</td>
+      <td class="center small">{{ r.min_qty or '—' }}</td>
+      {% if current_user %}
+      <td>
+        <form class="inline stock-adjust" method="post"
+              action="{{ url_for('adjust_stock', part_id=r.id) }}">
+          {{ csrf_input() }}
+          <input type="number" name="delta" value="-1" step="1" aria-label="Change">
+          <button class="btn small" type="submit">Apply</button>
+        </form>
+      </td>
+      {% endif %}
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+<p class="hint">Stock and location appear in KiCad's Symbol Chooser after the next sync,
+   so you can see what's on the shelf while picking a part.</p>
+{% else %}
+<div class="empty"><p>Nothing to show{% if low_only %} — nothing is below its reorder level{% endif %}.</p></div>
+{% endif %}
+{% endblock %}

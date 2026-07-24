@@ -64,6 +64,19 @@ CREATE TABLE IF NOT EXISTS part_editors (
     added_at TEXT    NOT NULL DEFAULT '',
     PRIMARY KEY (part_id, user_id)
 );
+
+-- Stage 7 stock audit trail. The counts themselves live in the KiCad database so
+-- they can reach the Symbol Chooser; who moved them is personal data and stays here.
+CREATE TABLE IF NOT EXISTS stock_moves (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    part_id    INTEGER NOT NULL,
+    delta      INTEGER NOT NULL,
+    resulting  INTEGER NOT NULL DEFAULT 0,
+    reason     TEXT    NOT NULL DEFAULT '',
+    reference  TEXT    NOT NULL DEFAULT '',
+    user_id    INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT    NOT NULL DEFAULT ''
+);
 """
 
 
@@ -335,6 +348,38 @@ def can_edit_part(user, part, lib):
     if lib and lib["kind"] == db.KIND_GROUP:
         return user["id"] == lib["owner_id"] or is_member(user["id"], lib["id"])
     return False
+
+
+# ---------------------------------------------------------------------------
+# stock audit trail
+# ---------------------------------------------------------------------------
+def log_stock_move(part_id, delta, resulting, reason, reference, user_id):
+    """Record who moved stock, by how much, and why.
+
+    Deliberately append-only: the count in the library database is the current state,
+    and this is the history that explains how it got there. When a shelf count and the
+    database disagree, this log is the only way to find out where they diverged.
+    """
+    with get_app_conn() as conn:
+        conn.execute(
+            "INSERT INTO stock_moves (part_id, delta, resulting, reason, reference,"
+            " user_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (int(part_id), int(delta), int(resulting), reason, reference,
+             int(user_id or 0), now_iso()),
+        )
+
+
+def stock_history(part_id, limit=50):
+    """Recent movements for a part, newest first, with the mover's name resolved."""
+    with get_app_conn() as conn:
+        rows = [dict(r) for r in conn.execute(
+            "SELECT * FROM stock_moves WHERE part_id = ?"
+            " ORDER BY id DESC LIMIT ?", (part_id, limit)
+        )]
+    for row in rows:
+        user = get_user(row["user_id"]) if row["user_id"] else None
+        row["user_name"] = user["name"] if user else "—"
+    return rows
 
 
 # ---------------------------------------------------------------------------

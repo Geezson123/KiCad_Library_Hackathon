@@ -57,6 +57,65 @@
   </dl>
 </div>
 
+<h2>Stock</h2>
+{% set low = stock.min_qty > 0 and stock.quantity <= stock.min_qty %}
+<div class="card">
+  <dl class="detail">
+    <dt>On hand</dt>
+    <dd><strong class="stock-count">{{ stock.quantity }}</strong>
+        {% if low %}<span class="chip low">at or below reorder level</span>{% endif %}</dd>
+    <dt>Location</dt><dd>{{ stock.location or '—' }}</dd>
+    <dt>Reorder at</dt><dd>{{ stock.min_qty or '— (not tracked)' }}</dd>
+    {% if stock.updated_at %}<dt>Last counted</dt><dd class="small">{{ stock.updated_at }}</dd>{% endif %}
+  </dl>
+
+  {% if current_user %}
+    <form class="inline stock-adjust" method="post"
+          action="{{ url_for('adjust_stock', part_id=part.id) }}">
+      {{ csrf_input() }}
+      <label class="inline-field">Change by
+        <input type="number" name="delta" value="-1" step="1" required>
+      </label>
+      <label class="inline-field">Reason
+        <input name="reason" placeholder="e.g. used on rev B board">
+      </label>
+      <button class="btn" type="submit">Apply</button>
+    </form>
+
+    <form method="post" action="{{ url_for('stock_settings', part_id=part.id) }}">
+      {{ csrf_input() }}
+      <div class="grid2">
+        <label>Storage location
+          <input name="location" value="{{ stock.location }}" placeholder="e.g. Drawer B3">
+        </label>
+        <label>Reorder level
+          <input type="number" name="min_qty" value="{{ stock.min_qty }}" min="0">
+        </label>
+      </div>
+      <div class="actions"><button class="btn" type="submit">Save location & level</button></div>
+    </form>
+  {% else %}
+    <p class="hint">Sign in to adjust stock.</p>
+  {% endif %}
+</div>
+
+{% if stock_history %}
+<table class="parts">
+  <thead><tr><th>When</th><th class="center">Change</th><th class="center">After</th><th>Reason</th><th>By</th></tr></thead>
+  <tbody>
+    {% for m in stock_history %}
+    <tr>
+      <td class="small">{{ m.created_at }}</td>
+      <td class="center"><strong>{{ '+' if m.delta > 0 else '' }}{{ m.delta }}</strong></td>
+      <td class="center small">{{ m.resulting }}</td>
+      <td class="small">{{ m.reason }}{% if m.reference %} · order {{ m.reference }}{% endif %}</td>
+      <td class="small">{{ m.user_name }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
 {% if can_edit %}
 <h2>Who can edit this part</h2>
 <div class="card">

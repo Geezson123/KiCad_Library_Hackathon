@@ -61,9 +61,146 @@ SCHEMA = {
 }
 
 
+RECEIPT_SYSTEM = """You read Mouser order confirmations and invoices and extract the \
+line items.
+
+For each ordered line, return the manufacturer part number, the Mouser part number, \
+and the quantity actually ordered. Use the manufacturer part number exactly as printed \
+- it is what the lab matches against, so do not normalise, expand, or tidy it.
+
+Ignore shipping, tax, handling, and discount lines: they are not stock. If the \
+document is not a Mouser order at all, return an empty items list and say so in notes.
+
+Quantities are integers. If a line's quantity is genuinely unreadable, omit that line \
+and mention it in notes rather than guessing a number."""
+
+RECEIPT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "order_number": {
+            "type": "string",
+            "description": "Mouser web order number, or empty if not shown.",
+        },
+        "items": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "mpn": {"type": "string", "description": "Manufacturer part number."},
+                    "mouser_pn": {"type": "string", "description": "Mouser part number."},
+                    "description": {"type": "string"},
+                    "quantity": {"type": "integer", "description": "Units ordered."},
+                },
+                "required": ["mpn", "mouser_pn", "description", "quantity"],
+                "additionalProperties": False,
+            },
+        },
+        "notes": {
+            "type": "string",
+            "description": "Anything unreadable, ambiguous, or skipped.",
+        },
+    },
+    "required": ["order_number", "items", "notes"],
+    "additionalProperties": False,
+}
+
+
 def configured():
     """Whether an API key is available. Enrichment is optional throughout."""
     return bool(config.ANTHROPIC_API_KEY)
+
+
+def _client():
+    """Construct the SDK client, or None if it is unavailable."""
+    if not configured():
+        return None
+    try:
+        import anthropic
+    except ImportError:
+        return None
+    return anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
+
+
+class ReceiptError(Exception):
+    """Receipt parsing failed; the message is user-facing."""
+
+
+def read_receipt(pdf_bytes=None, text=None):
+    """Extract order line items from a Mouser receipt.
+
+    Takes either a PDF (sent to Claude as a native document block -- no PDF library
+    needed here) or pasted text. Returns ``{order_number, items, notes}``.
+
+    Raises ReceiptError rather than degrading: unlike part enrichment, there is no
+    useful fallback for "read this document", and silently returning zero line items
+    would look like a receipt with nothing on it.
+    """
+    client = _client()
+    if client is None:
+        raise ReceiptError(
+            "Receipt reading needs Claude. Set ANTHROPIC_API_KEY on the server "
+            "(and pip install -r server/requirements.txt)."
+        )
+
+    if pdf_bytes:
+        import base64
+        content = [
+            # The document block goes before the text block -- that ordering is what
+            # the API expects for document questions.
+            {"type": "document", "source": {
+                "type": "base64", "media_type": "application/pdf",
+                "data": base64.standard_b64encode(pdf_bytes).decode("ascii"),
+            }},
+            {"type": "text", "text": "Extract the ordered line items from this Mouser order."},
+        ]
+    elif (text or "").strip():
+        content = [{"type": "text",
+                    "text": "Extract the ordered line items from this Mouser order:\n\n"
+                            + text}]
+    else:
+        raise ReceiptError("Attach a PDF or paste the order text.")
+
+    try:
+        response = client.messages.create(
+            model=MODEL,
+            max_tokens=16000,
+            system=RECEIPT_SYSTEM,
+            thinking={"type": "adaptive"},
+            output_config={
+                "effort": EFFORT,
+                "format": {"type": "json_schema", "schema": RECEIPT_SCHEMA},
+            },
+            messages=[{"role": "user", "content": content}],
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise ReceiptError(f"Could not read the receipt: {exc}")
+
+    if response.stop_reason == "refusal":
+        raise ReceiptError("The model declined to read that document.")
+
+    raw = next((b.text for b in response.content if b.type == "text"), "")
+    try:
+        parsed = json.loads(raw)
+    except ValueError:
+        raise ReceiptError("The model returned something unparseable.")
+
+    # Drop anything without a usable MPN or a positive quantity. The schema cannot
+    # express "quantity must be at least 1", and a zero-quantity line is not stock.
+    items = [
+        {
+            "mpn": (item.get("mpn") or "").strip(),
+            "mouser_pn": (item.get("mouser_pn") or "").strip(),
+            "description": (item.get("description") or "").strip(),
+            "quantity": int(item.get("quantity") or 0),
+        }
+        for item in parsed.get("items", [])
+        if (item.get("mpn") or "").strip() and int(item.get("quantity") or 0) > 0
+    ]
+    return {
+        "order_number": (parsed.get("order_number") or "").strip(),
+        "items": items,
+        "notes": (parsed.get("notes") or "").strip(),
+    }
 
 
 def _fallback(part, categories, reason):

@@ -52,6 +52,20 @@
                     "name": "Datasheet",
                     "visible_on_add": false,
                     "visible_in_chooser": false
+                },
+                {
+                    "column": "quantity",
+                    "name": "In Stock",
+                    "visible_on_add": false,
+                    "visible_in_chooser": true,
+                    "show_name": true
+                },
+                {
+                    "column": "location",
+                    "name": "Location",
+                    "visible_on_add": false,
+                    "visible_in_chooser": true,
+                    "show_name": true
                 }
             ],
             "properties": {

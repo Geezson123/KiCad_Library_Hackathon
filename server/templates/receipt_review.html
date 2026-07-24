@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Review order{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Review order{% if order_number %} <span class="mono">{{ order_number }}</span>{% endif %}</h1>
+</div>
+
+<div class="card draft-banner">
+  <p>
+    <strong>{{ matched }} of {{ lines|length }} line(s) matched a part in your library.</strong>
+    Nothing has been stocked yet — tick the lines to apply and confirm below.
+  </p>
+  {% if notes %}<p class="hint">Reader notes: {{ notes }}</p>{% endif %}
+  {% if matched < lines|length %}
+    <p class="hint">Unmatched lines have no part with that MPN yet. Add the part first
+       (<a href="{{ url_for('upload_from_mouser') }}">from a Mouser link</a> is quickest),
+       then re-read this order.</p>
+  {% endif %}
+</div>
+
+<form method="post" action="{{ url_for('receipt_apply') }}">
+  {{ csrf_input() }}
+  <input type="hidden" name="order_number" value="{{ order_number }}">
+  <table class="parts">
+    <thead>
+      <tr>
+        <th class="center">Apply</th><th>MPN</th><th>Description</th>
+        <th class="center">Ordered</th><th>Matched part</th>
+        <th class="center">Stock after</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for l in lines %}
+      <tr class="{{ '' if l.part else 'unmatched' }}">
+        <td class="center">
+          {% if l.part %}
+            <input type="checkbox" name="apply" value="{{ l.part.id }}" checked
+                   aria-label="Apply {{ l.mpn }}">
+            <input type="hidden" name="qty_{{ l.part.id }}" value="{{ l.quantity }}">
+          {% else %}—{% endif %}
+        </td>
+        <td class="mono">{{ l.mpn }}</td>
+        <td class="small">{{ l.description or '—' }}</td>
+        <td class="center"><strong>{{ l.quantity }}</strong></td>
+        <td>
+          {% if l.part %}
+            <a href="{{ url_for('part_detail', part_id=l.part.id) }}">{{ l.part.name }}</a>
+          {% else %}
+            <span class="chip low">no matching part</span>
+          {% endif %}
+        </td>
+        <td class="center small">
+          {% if l.part %}{{ l.current }} → <strong>{{ l.current + l.quantity }}</strong>{% else %}—{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="actions">
+    <button class="btn primary" type="submit" {{ 'disabled' if not matched }}>
+      Apply {{ matched }} line(s) to stock
+    </button>
+    <a class="btn" href="{{ url_for('receipt') }}">Read a different order</a>
+    <a class="btn" href="{{ url_for('inventory') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

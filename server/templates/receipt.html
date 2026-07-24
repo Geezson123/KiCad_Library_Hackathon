@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Stock from an order{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Stock from a Mouser order</h1></div>
+
+{% if not ai_enabled %}
+  <div class="flash flash-error">
+    <strong>Receipt reading isn't available.</strong>
+    It needs <code>ANTHROPIC_API_KEY</code> set on the server. You can still adjust
+    stock by hand from the <a href="{{ url_for('inventory') }}">inventory page</a>.
+  </div>
+{% endif %}
+
+<form class="card form" method="post" action="{{ url_for('receipt') }}"
+      enctype="multipart/form-data">
+  {{ csrf_input() }}
+  <label class="file">Order confirmation or invoice (PDF)
+    <input type="file" name="pdf" accept=".pdf">
+  </label>
+  <p class="hint">Or paste the order text instead — whichever is easier.</p>
+  <label class="span2">Pasted order text
+    <textarea name="text" rows="8"
+              placeholder="Paste the contents of the Mouser order confirmation email…"></textarea>
+  </label>
+  <div class="actions">
+    <button class="btn primary" type="submit" {{ 'disabled' if not ai_enabled }}>
+      Read order
+    </button>
+    <a class="btn" href="{{ url_for('inventory') }}">Cancel</a>
+  </div>
+</form>
+
+<div class="card">
+  <p class="hint">
+    The order is read and matched against your library, then you get a review screen
+    showing exactly which parts would be stocked and by how much.
+    <strong>Nothing changes until you confirm there.</strong>
+    Lines that don't match a part in the library are flagged rather than guessed at.
+  </p>
+</div>
+{% endblock %}

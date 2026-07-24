@@ -13,7 +13,8 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SUITES = ["test_auth.py", "test_libraries.py", "test_csrf.py", "test_installer.py",
-          "test_sync.py", "test_mouser.py"]
+          "test_sync.py", "test_mouser.py",
+          "test_inventory.py"]
 
 
 def main():
