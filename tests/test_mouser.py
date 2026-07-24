@@ -127,14 +127,27 @@ check("fallback explains itself", "ANTHROPIC_API_KEY" in draft["notes"], draft["
 section("AI output is constrained to what exists here")
 
 
-def fake_anthropic(payload_text, stop_reason="end_turn"):
-    """Inject a stand-in `anthropic` module so enrich() takes the model path."""
+def fake_anthropic(payload_text, stop_reason="end_turn", model="stub-model"):
+    """Inject a stand-in `anthropic` module so enrich() takes the model path.
+
+    Returns a dict that captures the kwargs of the last request, so tests can assert
+    on the parameters actually sent rather than only on the parsed result.
+    """
     block = types.SimpleNamespace(type="text", text=payload_text)
-    response = types.SimpleNamespace(content=[block], stop_reason=stop_reason)
-    messages = types.SimpleNamespace(create=lambda **kw: response)
+    response = types.SimpleNamespace(content=[block], stop_reason=stop_reason,
+                                     model=model)
+    captured = {}
+
+    def create(**kwargs):
+        captured.clear()
+        captured.update(kwargs)
+        return response
+
     module = types.ModuleType("anthropic")
-    module.Anthropic = lambda **kw: types.SimpleNamespace(messages=messages)
+    module.Anthropic = lambda **kw: types.SimpleNamespace(
+        messages=types.SimpleNamespace(create=create))
     sys.modules["anthropic"] = module
+    return captured
 
 
 config.ANTHROPIC_API_KEY = "test-key"
@@ -161,6 +174,77 @@ fake_anthropic("{}", stop_reason="refusal")
 draft = ai.enrich(part, webapp.CATEGORIES, ["R_0603"])
 check("a refusal degrades", draft["ai_used"] is False, draft)
 check("refusal is explained", "declined" in draft["notes"], draft["notes"])
+
+section("model is configurable, and parameters adapt to it")
+VALID = ('{"category": "Resistor", "keywords": "k", "value": "",'
+         ' "suggested_footprint": null, "notes": "n"}')
+_saved_model, _saved_effort = config.AI_MODEL, config.AI_EFFORT
+
+# Adaptive-thinking models: thinking + effort together.
+for model in ("claude-opus-4-8", "claude-sonnet-5", "claude-opus-4-6"):
+    config.AI_MODEL = model
+    captured = fake_anthropic(VALID)
+    ai.enrich(part, webapp.CATEGORIES, ["R_0603"])
+    check(f"{model}: configured model is the one requested",
+          captured.get("model") == model, captured.get("model"))
+    check(f"{model}: adaptive thinking",
+          captured.get("thinking") == {"type": "adaptive"}, captured.get("thinking"))
+    check(f"{model}: effort sent",
+          captured["output_config"].get("effort") == config.AI_EFFORT,
+          captured["output_config"])
+
+# Haiku rejects `effort` and needs the older budget_tokens form — a bare model-string
+# swap would 400 here, which is the whole reason profiles exist.
+config.AI_MODEL = "claude-haiku-4-5"
+captured = fake_anthropic(VALID)
+ai.enrich(part, webapp.CATEGORIES, ["R_0603"])
+check("haiku: budget_tokens form, not adaptive",
+      captured["thinking"] == {"type": "enabled", "budget_tokens": ai.THINKING_BUDGET},
+      captured["thinking"])
+check("haiku: effort omitted (it is rejected)",
+      "effort" not in captured["output_config"], captured["output_config"])
+check("haiku: budget is below max_tokens",
+      ai.THINKING_BUDGET < captured["max_tokens"])
+check("haiku: budget is above the 1024 minimum", ai.THINKING_BUDGET >= 1024)
+
+# Fable/Mythos: thinking is always on and sending the parameter at all is a 400.
+config.AI_MODEL = "claude-fable-5"
+captured = fake_anthropic(VALID)
+ai.enrich(part, webapp.CATEGORIES, ["R_0603"])
+check("fable: thinking parameter omitted entirely",
+      "thinking" not in captured, captured.get("thinking"))
+check("fable: effort still sent", "effort" in captured["output_config"])
+
+# An unknown name gets the modern shape rather than a silent wrong guess.
+config.AI_MODEL = "claude-something-unreleased"
+captured = fake_anthropic(VALID)
+ai.enrich(part, webapp.CATEGORIES, ["R_0603"])
+check("unknown model falls back to the adaptive profile",
+      captured.get("thinking") == {"type": "adaptive"}, captured.get("thinking"))
+
+# Effort is configurable too.
+config.AI_MODEL, config.AI_EFFORT = "claude-opus-4-8", "xhigh"
+captured = fake_anthropic(VALID)
+ai.enrich(part, webapp.CATEGORIES, ["R_0603"])
+check("effort comes from config",
+      captured["output_config"]["effort"] == "xhigh", captured["output_config"])
+
+# Structured output survives every profile — it is what the guardrails parse.
+for model in ("claude-opus-4-8", "claude-haiku-4-5", "claude-fable-5"):
+    config.AI_MODEL = model
+    captured = fake_anthropic(VALID)
+    ai.enrich(part, webapp.CATEGORIES, ["R_0603"])
+    fmt = captured["output_config"].get("format", {})
+    check(f"{model}: json_schema output still requested",
+          fmt.get("type") == "json_schema" and "schema" in fmt, fmt)
+
+section("the model used is reported back")
+config.AI_MODEL, config.AI_EFFORT = _saved_model, _saved_effort
+fake_anthropic(VALID, model="claude-sonnet-5")
+draft = ai.enrich(part, webapp.CATEGORIES, ["R_0603"])
+check("draft names the model that produced it",
+      draft["model"] == "claude-sonnet-5", draft.get("model"))
+check("fallback drafts report no model", ai._fallback(part, [], "x")["model"] == "")
 
 section("footprint list comes from the real library")
 names = library.list_footprints()

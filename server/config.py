@@ -70,6 +70,15 @@ MOUSER_API_KEY = os.environ.get("LUGROUPLIB_MOUSER_KEY", "")
 # ingest still works without it, just with more fields left for the user to fill in.
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 
+# Which model drafts part metadata and reads receipts. Configurable so it can be A/B'd
+# against real parts by restarting the service, with no code change or redeploy.
+# server/ai.py adapts the request parameters per model -- they are not interchangeable.
+AI_MODEL = os.environ.get("LUGROUPLIB_AI_MODEL", "claude-opus-4-8")
+
+# Reasoning depth: low | medium | high | xhigh | max. Silently ignored by models that
+# do not support the effort parameter (Haiku 4.5).
+AI_EFFORT = os.environ.get("LUGROUPLIB_AI_EFFORT", "medium")
+
 # The single nickname every part is filed under. Keeps the KiCad symbol/footprint
 # library tables to one entry each.
 LIB_NICKNAME = "LuGroupLib"

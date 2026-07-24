@@ -118,5 +118,7 @@ All configuration is environment variables. See
 | `LUGROUPLIB_APP_DB` | no | Where the identity database lives (default `server/app.sqlite`) |
 | `LUGROUPLIB_MOUSER_KEY` | for Mouser ingest | Free key from mouser.com/api-hub |
 | `ANTHROPIC_API_KEY` | for AI features | Enables metadata drafting and receipt reading |
+| `LUGROUPLIB_AI_MODEL` | no | Model for drafting and receipt reading. Default `claude-opus-4-8`. Request parameters adapt per model, so `claude-haiku-4-5` and `claude-fable-5` work too. |
+| `LUGROUPLIB_AI_EFFORT` | no | Reasoning depth: `low`…`max`. Default `medium`. Ignored by models without effort support. |
 | `LUGROUPLIB_DEV_LOGIN` | **never in production** | Passwordless sign-in as anyone |
 | `LUGROUPLIB_DEBUG` | **never in production** | Flask debug mode. Serves the Werkzeug debugger, which runs arbitrary code from the browser. Off by default; only meaningful with `python app.py`, since gunicorn ignores it. |

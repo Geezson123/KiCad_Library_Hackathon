@@ -11,6 +11,7 @@
     Nothing has been stocked yet — tick the lines to apply and confirm below.
   </p>
   {% if notes %}<p class="hint">Reader notes: {{ notes }}</p>{% endif %}
+  {% if model %}<p class="hint">Read by <code class="mono">{{ model }}</code>.</p>{% endif %}
   {% if matched < lines|length %}
     <p class="hint">Unmatched lines have no part with that MPN yet. Add the part first
        (<a href="{{ url_for('upload_from_mouser') }}">from a Mouser link</a> is quickest),

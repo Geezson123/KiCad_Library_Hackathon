@@ -21,6 +21,7 @@
         <span class="chip ai">AI guess</span></dd>
     {% endif %}
     {% if d.notes %}<dt>Notes</dt><dd>{{ d.notes }}</dd>{% endif %}
+    {% if d.model %}<dt>Drafted by</dt><dd class="mono small">{{ d.model }}</dd>{% endif %}
   </dl>
   <p class="hint">
     MPN, manufacturer, description and datasheet came straight from Mouser.

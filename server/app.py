@@ -414,6 +414,7 @@ def receipt():
 
     return render_template("receipt_review.html", lines=lines,
                            order_number=parsed["order_number"], notes=parsed["notes"],
+                           model=parsed.get("model", ""),
                            matched=sum(1 for l in lines if l["part"]))
 
 
@@ -492,6 +493,7 @@ def upload_from_mouser():
         "suggested_footprint": draft.get("suggested_footprint"),
         "notes": draft.get("notes", ""),
         "ai_used": draft.get("ai_used", False),
+        "model": draft.get("model", ""),
     }
     flash(f"Found {part['mpn'] or 'the part'} on Mouser. Review the details below, "
           "attach a symbol, and save.", "success")

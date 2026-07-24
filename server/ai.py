@@ -14,11 +14,68 @@ import json
 
 import config
 
-MODEL = "claude-opus-4-8"
+# The model comes from config (LUGROUPLIB_AI_MODEL) so it can be A/B'd on real parts
+# without a code change. Models are NOT parameter-compatible, though, so the configured
+# name selects a profile rather than being dropped straight into the request:
+#
+#   adaptive  thinking={"type": "adaptive"} + output_config.effort
+#             — Opus 4.8/4.7/4.6, Sonnet 5/4.6
+#   budget    thinking={"type": "enabled", "budget_tokens": N}; effort is rejected
+#             — Haiku 4.5 and older
+#   always_on thinking is always on and sending the parameter at all is a 400
+#             — Fable 5 / Mythos 5
+#
+# Getting this wrong is a 400, not a degraded answer, which is why the mapping is
+# explicit rather than "just swap the string".
+_ADAPTIVE, _BUDGET, _ALWAYS_ON = "adaptive", "budget", "always_on"
 
-# Small, well-scoped classification -- `medium` gets the same answer as `high` here at
-# a fraction of the tokens. Raise it if footprint matching starts looking sloppy.
-EFFORT = "medium"
+MODEL_PROFILES = {
+    "claude-opus-4-8": _ADAPTIVE,
+    "claude-opus-4-7": _ADAPTIVE,
+    "claude-opus-4-6": _ADAPTIVE,
+    "claude-sonnet-5": _ADAPTIVE,
+    "claude-sonnet-4-6": _ADAPTIVE,
+    "claude-haiku-4-5": _BUDGET,
+    "claude-fable-5": _ALWAYS_ON,
+    "claude-mythos-5": _ALWAYS_ON,
+}
+
+MAX_TOKENS = 16000
+
+# Budget-profile models only. Must be less than MAX_TOKENS, minimum 1024.
+THINKING_BUDGET = 4000
+
+
+def _reasoning(model):
+    """Thinking kwargs and effort value for a model. Returns (kwargs, effort_or_None).
+
+    An unrecognised model gets the adaptive profile: it is the current shape and what
+    every recent model uses. If that is wrong for some future model the API says so
+    plainly, which is a better failure than silently guessing a different default.
+    """
+    profile = MODEL_PROFILES.get(model, _ADAPTIVE)
+    if profile == _BUDGET:
+        return {"thinking": {"type": "enabled", "budget_tokens": THINKING_BUDGET}}, None
+    if profile == _ALWAYS_ON:
+        return {}, config.AI_EFFORT
+    return {"thinking": {"type": "adaptive"}}, config.AI_EFFORT
+
+
+def _ask(client, system, content, schema):
+    """Build and send a structured request. Both callers go through here so the
+    per-model parameter handling can never drift between them."""
+    thinking, effort = _reasoning(config.AI_MODEL)
+    output_config = {"format": {"type": "json_schema", "schema": schema}}
+    if effort:
+        output_config["effort"] = effort
+    return client.messages.create(
+        model=config.AI_MODEL,
+        max_tokens=MAX_TOKENS,
+        system=system,
+        output_config=output_config,
+        messages=[{"role": "user", "content": content}],
+        **thinking,
+    )
 
 SYSTEM = """You help a university electronics lab file parts into their shared KiCad \
 library. You are given factual data about a component from Mouser's catalogue, the \
@@ -161,17 +218,7 @@ def read_receipt(pdf_bytes=None, text=None):
         raise ReceiptError("Attach a PDF or paste the order text.")
 
     try:
-        response = client.messages.create(
-            model=MODEL,
-            max_tokens=16000,
-            system=RECEIPT_SYSTEM,
-            thinking={"type": "adaptive"},
-            output_config={
-                "effort": EFFORT,
-                "format": {"type": "json_schema", "schema": RECEIPT_SCHEMA},
-            },
-            messages=[{"role": "user", "content": content}],
-        )
+        response = _ask(client, RECEIPT_SYSTEM, content, RECEIPT_SCHEMA)
     except Exception as exc:  # noqa: BLE001
         raise ReceiptError(f"Could not read the receipt: {exc}")
 
@@ -200,6 +247,7 @@ def read_receipt(pdf_bytes=None, text=None):
         "order_number": (parsed.get("order_number") or "").strip(),
         "items": items,
         "notes": (parsed.get("notes") or "").strip(),
+        "model": getattr(response, "model", config.AI_MODEL),
     }
 
 
@@ -218,6 +266,7 @@ def _fallback(part, categories, reason):
         "suggested_footprint": None,
         "notes": reason,
         "ai_used": False,
+        "model": "",
     }
 
 
@@ -258,17 +307,7 @@ def enrich(part, categories, footprints):
 
     try:
         client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
-        response = client.messages.create(
-            model=MODEL,
-            max_tokens=16000,
-            system=SYSTEM,
-            thinking={"type": "adaptive"},
-            output_config={
-                "effort": EFFORT,
-                "format": {"type": "json_schema", "schema": SCHEMA},
-            },
-            messages=[{"role": "user", "content": prompt}],
-        )
+        response = _ask(client, SYSTEM, prompt, SCHEMA)
     except Exception as exc:  # noqa: BLE001 - degrade rather than break the upload
         return _fallback(part, categories, f"AI enrichment failed ({exc}).")
 
@@ -290,4 +329,7 @@ def enrich(part, categories, footprints):
         draft["suggested_footprint"] = None
 
     draft["ai_used"] = True
+    # Record which model produced this, so a model change is visible in the review UI
+    # rather than something you have to infer from server config.
+    draft["model"] = getattr(response, "model", config.AI_MODEL)
     return draft

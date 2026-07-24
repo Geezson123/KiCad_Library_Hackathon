@@ -153,6 +153,13 @@ Both degrade gracefully when unset — the app runs fine without either.
   "Add from Mouser link".
 - **`ANTHROPIC_API_KEY`** — enables AI metadata drafting and receipt reading.
 
+At lab volume the AI features cost roughly **$5–6 a year**, so the model is a quality
+knob rather than a cost one. If you want to compare anyway, `LUGROUPLIB_AI_MODEL` takes
+any of `claude-opus-4-8` (default), `claude-sonnet-5`, or `claude-haiku-4-5` — the app
+adjusts its request parameters per model, so no code change is needed. Restart the
+service and the review screens name the model that produced each draft, so you can
+judge the difference on your own parts instead of on benchmarks.
+
 ## 7. Backups
 
 Two files matter, and they are not interchangeable:
